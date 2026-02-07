@@ -41,8 +41,13 @@ conda activate .tangoenv (본인에 맞게 conda 구성)
 pip install -r requirements.txt
 uvicorn app:app --reload --host 127.0.0.1 --port 8000
 ```
+### uv가 설치되어 있다면 (설치: curl -LsSf https://astral.sh/uv/install.sh | sh) 일회성으로 수행하고 
+```
+uv run --with-requirements requirements.txt uvicorn app:app --host 127.0.0.1 --port 8000
 
+```
 브라우저에서 `http://127.0.0.1:8000` 접속
+
 
 ## CSV 텍스트 입력 포맷
 
