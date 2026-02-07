@@ -36,8 +36,8 @@
 ## 실행 방법
 
 ```bash
-cd /Users/jaehojoo/Desktop/mynewcodex/portfolio_service
-conda activate .tangoenv
+cd /Users/xxx/Desktop/portfolio_service (본인에 맞게 폴더로)
+conda activate .tangoenv (본인에 맞게 conda 구성)
 pip install -r requirements.txt
 uvicorn app:app --reload --host 127.0.0.1 --port 8000
 ```
