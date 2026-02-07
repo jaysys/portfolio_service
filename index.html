@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>보유 종목 계산기</title>
+    <style>
+      :root {
+      --bg: #f6f3ee;
+      --card: #ffffff;
+      --ink: #1b1a18;
+      --muted: #6b6b63;
+      --accent: #d9c2a6;
+      --line: #e6e2db;
+      }
+      body {
+        margin: 0;
+        font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+        background: linear-gradient(
+          140deg,
+          #f6f3ee 0%,
+          #efe8dc 60%,
+          #f6f3ee 100%
+        );
+        color: var(--ink);
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 40px auto;
+        padding: 0 20px 60px;
+      }
+      header {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        margin-bottom: 24px;
+      }
+      h1 {
+        font-size: 28px;
+        margin: 0;
+      }
+      .provider {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        padding: 12px 16px;
+        background: var(--card);
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        width: fit-content;
+      }
+      .provider label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 600;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 720px 1.3fr;
+        gap: 18px;
+        align-items: start;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 6px 6px;
+        text-align: left;
+        font-size: 14px;
+        vertical-align: middle;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        background: #faf8f4;
+      }
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+      background: #faf9f6;
+      color: #2a2824;
+    }
+      textarea {
+        width: 100%;
+        border: 1px solid #e1ddd5;
+        border-radius: 8px;
+        padding: 8px;
+        font-size: 13px;
+        box-sizing: border-box;
+        resize: vertical;
+        min-height: 120px;
+        font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+        background: #faf9f6;
+        color: #2a2824;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      button {
+        border: none;
+        background: var(--accent);
+        color: #fff;
+        padding: 10px 16px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button.secondary,
+      button.ghost {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .total {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 16px;
+        font-size: 18px;
+        font-weight: 700;
+      }
+      .error {
+        color: #b91c1c;
+        font-size: 13px;
+      }
+      .loading {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 6px;
+      }
+      .side-card h2 {
+        margin: 0 0 10px 0;
+        font-size: 16px;
+      }
+      .side-card table th,
+      .side-card table td {
+        font-size: 13px;
+      }
+      #subtotalTable {
+        width: 103%;
+      }
+      #subtotalTable th:first-child,
+      #subtotalTable td:first-child {
+        width: 40%;
+      }
+      #subtotalTable th:nth-child(2),
+      #subtotalTable td:nth-child(2) {
+        width: 16%;
+        white-space: nowrap;
+      }
+      #subtotalTable th:nth-child(3),
+      #subtotalTable td:nth-child(3) {
+        width: 28%;
+        white-space: nowrap;
+      }
+      #subtotalTable th:nth-child(4),
+      #subtotalTable td:nth-child(4) {
+        width: 12%;
+        white-space: nowrap;
+      }
+      .chart {
+        margin-top: 12px;
+        display: flex;
+        justify-content: center;
+      }
+      .legend {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .legend-swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        flex: 0 0 auto;
+      }
+      @media (max-width: 900px) {
+        table,
+        thead,
+        tbody,
+        th,
+        td,
+        tr {
+          display: block;
+        }
+        thead {
+          display: none;
+        }
+        tr {
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          margin-bottom: 12px;
+          padding: 10px;
+          background: #fff;
+          overflow: hidden;
+        }
+        td {
+          border: none;
+          padding: 6px 4px;
+          width: 100%;
+        }
+        td::before {
+          content: attr(data-label);
+          font-weight: 600;
+          color: var(--muted);
+          display: block;
+          margin-bottom: 4px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>보유 종목 테이블</h1>
+        <div class="muted">
+          한국 종목(6자리 숫자)은 네이버, 미국/해외 티커는 야후 → 실패 시
+          Stooq로 자동 조회됩니다. 모든 금액은 원화로 표시됩니다.
+        </div>
+        <div class="muted">
+          티커가 na이면 종목명은 “현금/해당없음”, 현재가는 1원으로 계산됩니다.
+        </div>
+        <div class="muted">
+          종목유형, 티커, 수량을 입력하고 저장하면 DB에 저장됩니다. “갱신”을
+          누르면 실시간 가격으로 보유금액이 업데이트됩니다.
+        </div>
+      </header>
+
+      <div class="layout">
+        <section class="card">
+          <table id="holdings">
+            <thead>
+              <tr>
+                <th>종목유형</th>
+                <th>티커</th>
+                <th>종목명</th>
+                <th>현재가</th>
+                <th>수량</th>
+                <th>보유금액</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div class="actions">
+            <button id="addRow">행 추가</button>
+            <button id="saveAll" class="secondary">구성 정보 저장</button>
+            <button id="refresh" class="ghost">실시간 가격 갱신</button>
+          </div>
+          <div class="actions">
+            <label class="muted"
+              ><input type="checkbox" id="replaceAll" /> 기존 데이터 삭제 후
+              가져오기</label
+            >
+          </div>
+          <div class="actions">
+            <textarea
+              id="csvText"
+              rows="6"
+              placeholder="ticker,quantity&#10;064400,664&#10;na,60000"
+            ></textarea>
+            <button id="importCsvText" class="secondary">
+              CSV 붙여넣고 가져오기
+            </button>
+          </div>
+          <div id="error" class="error"></div>
+          <div id="loading" class="loading" style="display: none">조회 중...</div>
+          <div class="total">총 보유금액: <span id="total">0</span></div>
+        </section>
+
+        <aside class="card side-card">
+          <h2>종목명 기준 서브합</h2>
+          <table id="subtotalTable">
+            <thead>
+              <tr>
+                <th>종목명</th>
+                <th>수량 합</th>
+                <th>서브합(₩)</th>
+                <th>비중</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div class="chart" id="pieChart"></div>
+          <div class="legend" id="pieLegend"></div>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+      const tbody = document.querySelector("#holdings tbody");
+      const totalEl = document.getElementById("total");
+      const errorEl = document.getElementById("error");
+      const loadingEl = document.getElementById("loading");
+      const subtotalBody = document.querySelector("#subtotalTable tbody");
+      const pieChartEl = document.getElementById("pieChart");
+      const pieLegendEl = document.getElementById("pieLegend");
+
+      function createRow(data = {}) {
+        const tr = document.createElement("tr");
+        tr.dataset.id = data.id || "";
+        tr.innerHTML = `
+        <td data-label="종목유형"><input type="text" placeholder="ETF/주식/예수금" value="${data.asset_type || "주식"}" /></td>
+        <td data-label="티커"><input type="text" placeholder="예: 005930, AAPL" value="${data.ticker || ""}" /></td>
+        <td data-label="종목명" class="name">${data.name || "-"}</td>
+        <td data-label="현재가" class="price">${data.price ? formatMoney(data.price, data.currency === "KRW" ? "₩" : data.currency) : "-"}</td>
+        <td data-label="수량"><input type="number" min="0" step="1" value="${data.quantity ?? 0}" /></td>
+        <td data-label="보유금액" class="amount">${data.amount ? formatMoney(data.amount, data.currency === "KRW" ? "₩" : data.currency) : "-"}</td>
+        <td data-label="삭제"><button class="ghost remove">삭제</button></td>
+      `;
+        tr.querySelector(".remove").addEventListener("click", () =>
+          handleDelete(tr),
+        );
+        return tr;
+      }
+
+      function formatMoney(value, currency = "") {
+        if (value === null || value === undefined || Number.isNaN(value))
+          return "-";
+        const formatter = new Intl.NumberFormat("ko-KR", {
+          maximumFractionDigits: 2,
+        });
+        return `${currency ? currency + " " : ""}${formatter.format(value)}`;
+      }
+
+      function setLoading(isLoading, message = "조회 중...") {
+        loadingEl.style.display = isLoading ? "block" : "none";
+        loadingEl.textContent = message;
+        document.getElementById("saveAll").disabled = isLoading;
+        document.getElementById("refresh").disabled = isLoading;
+        document.getElementById("importCsvText").disabled = isLoading;
+      }
+
+      function parseAmount(text) {
+        const cleaned = text.replace(/[₩,\\s]/g, "");
+        if (!cleaned) return null;
+        const value = Number(cleaned);
+        return Number.isNaN(value) ? null : value;
+      }
+
+      function updateSubtotals(entries) {
+        const totals = new Map();
+        const qtyTotals = new Map();
+        let grandTotal = 0;
+        entries.forEach((row) => {
+          if (row.amount === null || row.amount === undefined) return;
+          grandTotal += row.amount;
+          const key = row.name || "-";
+          totals.set(key, (totals.get(key) || 0) + row.amount);
+          const qty = Number(row.quantity || 0);
+          qtyTotals.set(key, (qtyTotals.get(key) || 0) + qty);
+        });
+
+        const list = Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
+        subtotalBody.innerHTML = "";
+        list.forEach(([name, amount]) => {
+          const ratio = grandTotal > 0 ? (amount / grandTotal) * 100 : 0;
+          const qtySum = qtyTotals.get(name) || 0;
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${name}</td>
+            <td>${new Intl.NumberFormat("ko-KR").format(qtySum)}</td>
+            <td>${formatMoney(amount, "₩")}</td>
+            <td>${ratio.toFixed(1)}%</td>
+          `;
+          subtotalBody.appendChild(tr);
+        });
+
+        renderPie(list, grandTotal);
+      }
+
+      function updateSubtotalsFromDom() {
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+        const entries = rows.map((row) => {
+          const name = row.querySelector(".name")?.textContent || "-";
+          const amountText = row.querySelector(".amount")?.textContent || "";
+          const amount = parseAmount(amountText);
+          const qtyValue = Number(
+            row.querySelector("td:nth-child(5) input")?.value || 0,
+          );
+          return { name, amount, quantity: qtyValue };
+        });
+        updateSubtotals(entries);
+      }
+
+      function renderPie(entries, total) {
+        pieChartEl.innerHTML = "";
+        pieLegendEl.innerHTML = "";
+        if (!entries.length || total === 0) {
+          pieChartEl.textContent = "데이터 없음";
+          return;
+        }
+
+        const size = 234;
+        const radius = 104;
+        const center = size / 2;
+        const colors = [
+          "#0f766e",
+          "#3f4e4f",
+          "#a66e4a",
+          "#7b8a70",
+          "#c37b6a",
+          "#5c6b73",
+          "#9a7d6a",
+          "#6d8b74",
+        ];
+        const svgDefs = `
+          <defs>
+            <radialGradient id="pieShade" cx="35%" cy="35%" r="70%">
+              <stop offset="0%" stop-color="#ffffff" stop-opacity="0.6" />
+              <stop offset="65%" stop-color="#ffffff" stop-opacity="0.0" />
+              <stop offset="100%" stop-color="#000000" stop-opacity="0.08" />
+            </radialGradient>
+            <filter id="pieShadow" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18" />
+            </filter>
+          </defs>
+        `;
+
+        let startAngle = -Math.PI / 2;
+        const svgParts = [];
+        const labelParts = [];
+
+        entries.forEach(([name, amount], idx) => {
+          const angle = (amount / total) * Math.PI * 2;
+          const ratio = total > 0 ? (amount / total) * 100 : 0;
+          const endAngle = startAngle + angle;
+          const largeArc = angle > Math.PI ? 1 : 0;
+          const x1 = center + radius * Math.cos(startAngle);
+          const y1 = center + radius * Math.sin(startAngle);
+          const x2 = center + radius * Math.cos(endAngle);
+          const y2 = center + radius * Math.sin(endAngle);
+          const color = colors[idx % colors.length];
+
+          const midAngle = startAngle + angle / 2;
+          const explode = 4;
+          const dx = Math.cos(midAngle) * explode;
+          const dy = Math.sin(midAngle) * explode;
+
+          svgParts.push(
+            `<path d="M ${center} ${center} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z" fill="${color}" stroke="#f6f3ee" stroke-width="2" filter="url(#pieShadow)" transform="translate(${dx}, ${dy})"></path>`,
+          );
+
+          if (ratio >= 3) {
+            const lx = center + (radius * 0.6) * Math.cos(midAngle) + dx;
+            const ly = center + (radius * 0.6) * Math.sin(midAngle) + dy;
+            labelParts.push(
+              `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="#1b1a18">${ratio.toFixed(1)}%</text>`,
+            );
+          }
+
+          const legendItem = document.createElement("div");
+          legendItem.className = "legend-item";
+          legendItem.innerHTML = `<span class="legend-swatch" style="background:${color}"></span>${name} (${ratio.toFixed(1)}%)`;
+          pieLegendEl.appendChild(legendItem);
+
+          startAngle = endAngle;
+        });
+
+        pieChartEl.innerHTML = `
+          <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+            ${svgDefs}
+            ${svgParts.join("")}
+            <circle cx="${center}" cy="${center}" r="${radius}" fill="url(#pieShade)" />
+            ${labelParts.join("")}
+          </svg>
+        `;
+      }
+
+      async function fetchQuote(ticker) {
+        const res = await fetch(
+          `/api/quote?ticker=${encodeURIComponent(ticker)}`,
+        );
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          const msg = data.detail || "조회 실패";
+          throw new Error(`${ticker}: ${msg}`);
+        }
+        return res.json();
+      }
+
+      async function loadHoldings() {
+        errorEl.textContent = "";
+        setLoading(true, "조회 중... (0/0)");
+        const res = await fetch(`/api/holdings_raw`);
+        if (!res.ok) {
+          errorEl.textContent = "목록을 불러오지 못했습니다.";
+          setLoading(false);
+          return;
+        }
+        const data = await res.json();
+        tbody.innerHTML = "";
+        let total = 0;
+        const failedTickers = [];
+        data.forEach((row) => {
+          tbody.appendChild(createRow(row));
+        });
+
+        for (let i = 0; i < data.length; i++) {
+          const row = data[i];
+          setLoading(
+            true,
+            `조회 중... (${i + 1}/${data.length}) ${row.ticker}`,
+          );
+          const tr = tbody.children[i];
+          const nameEl = tr.querySelector(".name");
+          const priceEl = tr.querySelector(".price");
+          const amountEl = tr.querySelector(".amount");
+          try {
+            const resQuote = await fetch(
+              `/api/quote_krw?ticker=${encodeURIComponent(row.ticker)}`,
+            );
+            if (!resQuote.ok) {
+              const data = await resQuote.json().catch(() => ({}));
+              const detail = data.detail || "조회 실패";
+              throw new Error(detail);
+            }
+            const quote = await resQuote.json();
+            nameEl.textContent = quote.name;
+            priceEl.textContent = formatMoney(quote.price, "₩");
+            const amount = quote.price * row.quantity;
+            amountEl.textContent = formatMoney(amount, "₩");
+            total += amount;
+            row.name = quote.name;
+            row.amount = amount;
+            row.quantity = row.quantity ?? 0;
+          } catch (err) {
+            nameEl.textContent = "조회실패";
+            priceEl.textContent = "-";
+            amountEl.textContent = "-";
+            failedTickers.push(`${row.ticker}(${err.message})`);
+            row.name = "조회실패";
+            row.amount = null;
+            row.quantity = row.quantity ?? 0;
+          }
+        }
+
+        totalEl.textContent = formatMoney(total, "₩");
+        if (failedTickers.length > 0) {
+          errorEl.textContent = `조회 실패 종목: ${failedTickers.join(", ")}`;
+        }
+        if (data.length === 0) tbody.appendChild(createRow());
+        updateSubtotals(data);
+        setLoading(false);
+      }
+
+      async function handleSaveAll() {
+        errorEl.textContent = "";
+        setLoading(true, "저장 및 재계산 중...");
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+        const items = [];
+        for (const row of rows) {
+          const assetType = row
+            .querySelector("td:nth-child(1) input")
+            .value.trim();
+          const ticker = row
+            .querySelector("td:nth-child(2) input")
+            .value.trim();
+          const quantity = Number(
+            row.querySelector("td:nth-child(5) input").value || 0,
+          );
+          if (!ticker) {
+            continue;
+          }
+          items.push({ asset_type: assetType || "주식", ticker, quantity });
+        }
+
+        const res = await fetch("/api/holdings/bulk_replace", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          errorEl.textContent = data.detail || "저장 실패";
+          setLoading(false);
+          return;
+        }
+        await loadHoldings();
+      }
+
+      function recalcTotal() {
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+        let total = 0;
+        rows.forEach((row) => {
+          const amountEl = row.querySelector(".amount");
+          const value = parseAmount(amountEl.textContent);
+          if (value !== null) total += value;
+        });
+        totalEl.textContent = formatMoney(total, "₩");
+        updateSubtotalsFromDom();
+      }
+
+      async function handleDelete(row) {
+        const id = row.dataset.id;
+        row.remove();
+        recalcTotal();
+        if (!id) return;
+        const res = await fetch(`/api/holdings/${id}`, { method: "DELETE" });
+        if (!res.ok) {
+          errorEl.textContent = "삭제 실패";
+        }
+      }
+
+      document.getElementById("addRow").addEventListener("click", () => {
+        tbody.appendChild(createRow());
+      });
+
+      document
+        .getElementById("saveAll")
+        .addEventListener("click", handleSaveAll);
+      document
+        .getElementById("refresh")
+        .addEventListener("click", loadHoldings);
+
+      document
+        .getElementById("importCsvText")
+        .addEventListener("click", async () => {
+          errorEl.textContent = "";
+          setLoading(true, "CSV 가져오는 중...");
+          const replace = document.getElementById("replaceAll").checked;
+          const text = document.getElementById("csvText").value.trim();
+          if (!text) {
+            errorEl.textContent = "CSV 텍스트를 붙여넣으세요.";
+            setLoading(false);
+            return;
+          }
+          const res = await fetch(`/api/import_csv_text?replace=${replace}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ csv: text }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            errorEl.textContent = data.detail || "CSV 붙여넣기 실패";
+            setLoading(false);
+            return;
+          }
+          document.getElementById("csvText").value = "";
+          await loadHoldings();
+        });
+
+      loadHoldings();
+    </script>
+  </body>
+</html>
