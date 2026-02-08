@@ -238,6 +238,7 @@
       }
       .legend {
         margin-top: 10px;
+        margin-bottom: 12px;
         display: grid;
         grid-template-columns: 1fr;
         gap: 6px;
@@ -413,6 +414,8 @@
 
         <aside class="card side-card">
           <h2>종목명 기준 서브합</h2>
+          <div class="chart" id="pieChart"></div>
+          <div class="legend" id="pieLegend"></div>
           <table id="subtotalTable">
             <thead>
               <tr>
@@ -424,8 +427,6 @@
             </thead>
             <tbody></tbody>
           </table>
-          <div class="chart" id="pieChart"></div>
-          <div class="legend" id="pieLegend"></div>
         </aside>
       </div>
     </div>
@@ -596,8 +597,9 @@
           if (ratio >= 3) {
             const lx = center + radius * 0.6 * Math.cos(midAngle) + dx;
             const ly = center + radius * 0.6 * Math.sin(midAngle) + dy;
+            const subtotalText = idx < 3 ? ` / ${formatMoney(amount, "₩")}` : "";
             labelParts.push(
-              `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="#1b1a18">${ratio.toFixed(1)}%</text>`,
+              `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="#1b1a18">${ratio.toFixed(1)}%${subtotalText}</text>`,
             );
           }
 
