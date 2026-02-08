@@ -35,18 +35,98 @@
 
 ## 실행 방법
 
+### 기본 실행
 ```bash
-cd /Users/xxx/Desktop/portfolio_service (본인에 맞게 폴더로)
-conda activate .tangoenv (본인에 맞게 conda 구성)
+cd 소스폴더/
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app:app --reload --host 127.0.0.1 --port 8000
+APP_ENV=production uvicorn app:app --host 127.0.0.1 --port 8000
 ```
-### uv가 설치되어 있다면 (설치: curl -LsSf https://astral.sh/uv/install.sh | sh) 일회성으로 수행하고 
-```
-uv run --with-requirements requirements.txt uvicorn app:app --host 127.0.0.1 --port 8000
 
+### uv가 설치되어 있다면 (설치: curl -LsSf https://astral.sh/uv/install.sh | sh) - one shot run
+```bash
+APP_ENV=production uv run --with-requirements requirements.txt uvicorn app:app --host 127.0.0.1 --port 8000
 ```
+
 브라우저에서 `http://127.0.0.1:8000` 접속
+
+## 백그라운드 실행 방법
+
+터미널을 종료해도 서비스가 계속 실행되도록 하는 4가지 방법:
+
+### 방법 1: nohup 사용 (가장 간단)
+```bash
+nohup env APP_ENV=production uvicorn app:app --host 127.0.0.1 --port 8000 > app.log 2>&1 &
+```
+- **장점**: 설정이 간단하고 즉시 사용 가능
+- **단점**: 프로세스 관리가 제한적, 로그 관리가 수동
+- **종료**: `pkill -f uvicorn` 또는 `ps aux | grep uvicorn`으로 PID 찾아 `kill PID`
+
+### 방법 2: screen 사용
+```bash
+screen -S portfolio
+# screen 세션에서 실행
+uvicorn app:app --reload --host 127.0.0.1 --port 8000
+# Ctrl+A, D로 detach
+```
+- **장점**: 세션 관리 가능, 언제든지 재접속 가능
+- **단점**: screen 학습 필요, 시스템 재부팅 시 종료
+- **재접속**: `screen -r portfolio`
+- **종료**: screen 세션 접속 후 `Ctrl+C` 또는 `exit`
+
+### 방법 3: tmux 사용
+```bash
+tmux new -s portfolio
+# tmux 세션에서 실행
+uvicorn app:app --reload --host 127.0.0.1 --port 8000
+# Ctrl+B, D로 detach
+```
+- **장점**: screen보다 현대적, 세션 분할 가능
+- **단점**: tmux 학습 필요, 시스템 재부팅 시 종료
+- **재접속**: `tmux attach -t portfolio`
+- **종료**: tmux 세션 접속 후 `Ctrl+C` 또는 `exit`
+
+### 방법 4: systemd 서비스 등록 (영구적)
+1. 서비스 파일 생성:
+```bash
+sudo nano /etc/systemd/system/portfolio.service
+```
+
+2. 아래 내용 추가:
+```ini
+[Unit]
+Description=Portfolio Service
+After=network.target
+
+[Service]
+Type=simple
+User=kdm
+WorkingDirectory=/home/kdm/www/portfolio_service
+Environment=PATH=/home/kdm/.venv/bin
+ExecStart=/home/kdm/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+3. 서비스 활성화:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable portfolio
+sudo systemctl start portfolio
+```
+
+- **장점**: 시스템 재부팅 후 자동 시작, 안정적인 프로세스 관리
+- **단점**: 초기 설정이 복잡, root 권한 필요
+- **상태 확인**: `sudo systemctl status portfolio`
+- **로그 확인**: `sudo journalctl -u portfolio -f`
+- **종료**: `sudo systemctl stop portfolio`
+
+## 추천 방법
+- **개발 환경**: screen 또는 tmux
+- **프로덕션 환경**: systemd 서비스 등록
 
 
 ## CSV 텍스트 입력 포맷
