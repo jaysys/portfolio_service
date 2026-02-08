@@ -3,21 +3,65 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import re
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 import httpx
 from bs4 import BeautifulSoup
-from fastapi import Body, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from authlib.integrations.starlette_client import OAuth, OAuthError
+from dotenv import load_dotenv
+from fastapi import Body, FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
-
-app = FastAPI()
+from starlette.middleware.sessions import SessionMiddleware
+try:
+    from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
+except ModuleNotFoundError:  # pragma: no cover - fallback for older Starlette
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "portfolio.db"
+
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+load_dotenv(BASE_DIR / ".env")
+env_file = BASE_DIR / f".env.{APP_ENV}"
+if env_file.exists():
+    load_dotenv(env_file, override=True)
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
+SESSION_SECRET = os.getenv("SESSION_SECRET", "").strip() or os.getenv("SECRET_KEY", "").strip()
+SESSION_HTTPS_ONLY = os.getenv("SESSION_HTTPS_ONLY", "").strip().lower() in ("1", "true", "yes")
+PROXY_HEADERS = os.getenv("PROXY_HEADERS", "").strip().lower() in ("1", "true", "yes")
+
+if not SESSION_SECRET:
+    # Fallback for local-only use; override in production via env var.
+    SESSION_SECRET = "dev-session-secret"
+
+app = FastAPI()
+if PROXY_HEADERS:
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET,
+    same_site="lax",
+    https_only=SESSION_HTTPS_ONLY if APP_ENV == "production" else False,
+)
+
+oauth = OAuth()
+if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+    oauth.register(
+        name="google",
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid email profile"},
+    )
 
 NAME_OVERRIDES = {
     "TSLY": "YieldMax TSLA Option Income Strategy ETF",
@@ -320,23 +364,77 @@ def fetch_fx_rate_to_krw(currency: str) -> float:
 def get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=3000")
     return conn
 
 
-def init_db() -> None:
-    conn = get_db()
+def apply_migrations(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            id TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL
+        )
+        """
+    )
     try:
+        conn.execute("BEGIN IMMEDIATE")
+    except sqlite3.OperationalError:
+        # Another process likely holds the write lock; skip for this worker.
+        return
+
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                google_sub TEXT NOT NULL UNIQUE,
+                email TEXT NOT NULL,
+                name TEXT,
+                picture TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS holdings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
                 asset_type TEXT NOT NULL,
                 ticker TEXT NOT NULL,
                 quantity INTEGER NOT NULL DEFAULT 0
             )
             """
         )
+
+        migration_id = "20250208_add_holdings_user_id"
+        applied = conn.execute(
+            "SELECT 1 FROM schema_migrations WHERE id = ?",
+            (migration_id,),
+        ).fetchone()
+        if not applied:
+            columns = [
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(holdings)").fetchall()
+            ]
+            if "user_id" not in columns:
+                conn.execute("ALTER TABLE holdings ADD COLUMN user_id INTEGER")
+            conn.execute(
+                "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+                (migration_id, datetime.now(timezone.utc).isoformat()),
+            )
         conn.commit()
+    finally:
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
+
+
+def init_db() -> None:
+    conn = get_db()
+    try:
+        apply_migrations(conn)
     finally:
         conn.close()
 
@@ -375,13 +473,117 @@ def on_startup():
 def index():
     return FileResponse(BASE_DIR / "index.html")
 
+def require_user(request: Request) -> sqlite3.Row:
+    user_id = request.session.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="login required")
+    conn = get_db()
+    try:
+        user = conn.execute(
+            "SELECT id, google_sub, email, name, picture FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        if not user:
+            raise HTTPException(status_code=401, detail="user not found")
+        return user
+    finally:
+        conn.close()
+
+
+@app.get("/auth/login")
+async def auth_login(request: Request):
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(status_code=500, detail="google oauth not configured")
+    redirect_uri = GOOGLE_REDIRECT_URI or str(request.url_for("auth_callback"))
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/auth/callback")
+async def auth_callback(request: Request):
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(status_code=500, detail="google oauth not configured")
+    conn = get_db()
+    try:
+        user_count = conn.execute("SELECT COUNT(*) AS cnt FROM users").fetchone()["cnt"]
+        try:
+            token = await oauth.google.authorize_access_token(request)
+        except OAuthError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        user_info = token.get("userinfo")
+        if not user_info:
+            resp = await oauth.google.get("userinfo", token=token)
+            user_info = resp.json()
+
+        google_sub = user_info.get("sub")
+        email = user_info.get("email")
+        name = user_info.get("name") or ""
+        picture = user_info.get("picture") or ""
+        if not google_sub or not email:
+            raise HTTPException(status_code=400, detail="google user info missing")
+
+        existing = conn.execute(
+            "SELECT id FROM users WHERE google_sub = ?",
+            (google_sub,),
+        ).fetchone()
+        if existing:
+            user_id = existing["id"]
+            conn.execute(
+                "UPDATE users SET email = ?, name = ?, picture = ? WHERE id = ?",
+                (email, name, picture, user_id),
+            )
+        else:
+            cur = conn.execute(
+                """
+                INSERT INTO users (google_sub, email, name, picture, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (google_sub, email, name, picture, datetime.now(timezone.utc).isoformat()),
+            )
+            user_id = cur.lastrowid
+
+        if user_count == 0:
+            conn.execute(
+                "UPDATE holdings SET user_id = ? WHERE user_id IS NULL",
+                (user_id,),
+            )
+
+        conn.commit()
+        request.session["user_id"] = user_id
+        return RedirectResponse(url="/")
+    finally:
+        conn.close()
+
+
+@app.post("/auth/logout")
+def auth_logout(request: Request):
+    request.session.clear()
+    return {"ok": True}
+
+
+@app.get("/auth/me")
+def auth_me(request: Request):
+    user = require_user(request)
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "picture": user["picture"],
+    }
+
 
 @app.get("/api/holdings")
-def list_holdings():
+def list_holdings(request: Request):
+    user = require_user(request)
     conn = get_db()
     try:
         rows = conn.execute(
-            "SELECT id, asset_type, ticker, quantity FROM holdings ORDER BY id DESC"
+            """
+            SELECT id, asset_type, ticker, quantity
+            FROM holdings
+            WHERE user_id = ?
+            ORDER BY id DESC
+            """,
+            (user["id"],),
         ).fetchall()
         holdings = []
         fx_cache: dict[str, float] = {}
@@ -427,11 +629,18 @@ def list_holdings():
 
 
 @app.get("/api/holdings_raw")
-def list_holdings_raw():
+def list_holdings_raw(request: Request):
+    user = require_user(request)
     conn = get_db()
     try:
         rows = conn.execute(
-            "SELECT id, asset_type, ticker, quantity FROM holdings ORDER BY id DESC"
+            """
+            SELECT id, asset_type, ticker, quantity
+            FROM holdings
+            WHERE user_id = ?
+            ORDER BY id DESC
+            """,
+            (user["id"],),
         ).fetchall()
         return [row_to_dict(row) for row in rows]
     finally:
@@ -439,7 +648,8 @@ def list_holdings_raw():
 
 
 @app.post("/api/holdings", status_code=201)
-def create_holding(payload: HoldingCreate):
+def create_holding(payload: HoldingCreate, request: Request):
+    user = require_user(request)
     conn = get_db()
     try:
         asset_type = (payload.asset_type or "주식").strip()
@@ -447,8 +657,12 @@ def create_holding(payload: HoldingCreate):
         if is_cash_ticker(ticker):
             asset_type = "예수금"
         cur = conn.execute(
-            "INSERT INTO holdings (asset_type, ticker, quantity) VALUES (?, ?, ?)",
+            """
+            INSERT INTO holdings (user_id, asset_type, ticker, quantity)
+            VALUES (?, ?, ?, ?)
+            """,
             (
+                user["id"],
                 asset_type,
                 ticker,
                 payload.quantity,
@@ -465,7 +679,8 @@ def create_holding(payload: HoldingCreate):
 
 
 @app.post("/api/holdings/bulk_replace")
-def bulk_replace(payload: HoldingBulk):
+def bulk_replace(payload: HoldingBulk, request: Request):
+    user = require_user(request)
     rows = []
     for item in payload.items:
         asset_type = (item.asset_type or "주식").strip()
@@ -474,14 +689,17 @@ def bulk_replace(payload: HoldingBulk):
             continue
         if is_cash_ticker(ticker):
             asset_type = "예수금"
-        rows.append((asset_type, ticker, item.quantity))
+        rows.append((user["id"], asset_type, ticker, item.quantity))
 
     conn = get_db()
     try:
-        conn.execute("DELETE FROM holdings")
+        conn.execute("DELETE FROM holdings WHERE user_id = ?", (user["id"],))
         if rows:
             conn.executemany(
-                "INSERT INTO holdings (asset_type, ticker, quantity) VALUES (?, ?, ?)",
+                """
+                INSERT INTO holdings (user_id, asset_type, ticker, quantity)
+                VALUES (?, ?, ?, ?)
+                """,
                 rows,
             )
         conn.commit()
@@ -492,15 +710,20 @@ def bulk_replace(payload: HoldingBulk):
 
 
 @app.patch("/api/holdings/{holding_id}")
-def update_holding(holding_id: int, payload: HoldingUpdate):
+def update_holding(holding_id: int, payload: HoldingUpdate, request: Request):
+    user = require_user(request)
     if payload.asset_type is None and payload.ticker is None and payload.quantity is None:
         raise HTTPException(status_code=400, detail="no fields to update")
 
     conn = get_db()
     try:
         existing = conn.execute(
-            "SELECT id, asset_type, ticker, quantity FROM holdings WHERE id = ?",
-            (holding_id,),
+            """
+            SELECT id, asset_type, ticker, quantity
+            FROM holdings
+            WHERE id = ? AND user_id = ?
+            """,
+            (holding_id, user["id"]),
         ).fetchone()
         if not existing:
             raise HTTPException(status_code=404, detail="not found")
@@ -539,10 +762,14 @@ def update_holding(holding_id: int, payload: HoldingUpdate):
 
 
 @app.delete("/api/holdings/{holding_id}", status_code=204)
-def delete_holding(holding_id: int):
+def delete_holding(holding_id: int, request: Request):
+    user = require_user(request)
     conn = get_db()
     try:
-        cur = conn.execute("DELETE FROM holdings WHERE id = ?", (holding_id,))
+        cur = conn.execute(
+            "DELETE FROM holdings WHERE id = ? AND user_id = ?",
+            (holding_id, user["id"]),
+        )
         conn.commit()
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="not found")
@@ -577,20 +804,26 @@ def parse_csv_text(text: str) -> list[tuple[str, str, int]]:
 
 @app.post("/api/import_csv_text")
 async def import_csv_text(
+    request: Request,
     replace: bool = Query(default=False),
     body: dict = Body(...),
 ):
+    user = require_user(request)
     if not body or "csv" not in body:
         raise HTTPException(status_code=400, detail="csv text required")
 
     rows = parse_csv_text(str(body.get("csv", "")))
+    rows = [(user["id"], asset_type, ticker, quantity) for asset_type, ticker, quantity in rows]
     conn = get_db()
     try:
         if replace:
-            conn.execute("DELETE FROM holdings")
+            conn.execute("DELETE FROM holdings WHERE user_id = ?", (user["id"],))
         if rows:
             conn.executemany(
-                "INSERT INTO holdings (asset_type, ticker, quantity) VALUES (?, ?, ?)",
+                """
+                INSERT INTO holdings (user_id, asset_type, ticker, quantity)
+                VALUES (?, ?, ?, ?)
+                """,
                 rows,
             )
         conn.commit()
