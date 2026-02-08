@@ -142,3 +142,14 @@ na,60000
 
 - 외부 데이터 소스가 차단되면 가격 조회가 실패할 수 있습니다.
 - 해외 종목은 소스별 티커 규칙이 다를 수 있습니다.
+
+
+.env.production (별도 생성해서 넣어줘... 이런 내용에 맞게)
+```
+APP_ENV="production"
+GOOGLE_CLIENT_ID="923818443020-sf6mohajn3q1~~~~~~~~~9nnr.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="GOCSPX-NMB5PA~~~~~~~~~hR2F1KE"
+GOOGLE_REDIRECT_URI="https://djbla.kbla.smartspace.co.kr/auth/callback"
+SESSION_HTTPS_ONLY="true"
+PROXY_HEADERS="true"
+```
