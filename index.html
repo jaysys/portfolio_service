@@ -6,12 +6,12 @@
     <title>보유 종목 계산기</title>
     <style>
       :root {
-      --bg: #f6f3ee;
-      --card: #ffffff;
-      --ink: #1b1a18;
-      --muted: #6b6b63;
-      --accent: #d9c2a6;
-      --line: #e6e2db;
+        --bg: #f6f3ee;
+        --card: #ffffff;
+        --ink: #1b1a18;
+        --muted: #6b6b63;
+        --accent: #d9c2a6;
+        --line: #e6e2db;
       }
       body {
         margin: 0;
@@ -34,6 +34,34 @@
         flex-direction: column;
         gap: 14px;
         margin-bottom: 24px;
+      }
+      .auth-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 14px;
+      }
+      .auth-user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .auth-user img {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 1px solid var(--line);
+      }
+      .auth-actions {
+        display: flex;
+        gap: 8px;
       }
       h1 {
         font-size: 28px;
@@ -81,22 +109,45 @@
         font-size: 14px;
         vertical-align: middle;
       }
+      #holdings th:nth-child(4),
+      #holdings td:nth-child(4),
+      #holdings th:nth-child(5),
+      #holdings td:nth-child(5),
+      #holdings th:nth-child(6),
+      #holdings td:nth-child(6),
+      #subtotalTable th:nth-child(2),
+      #subtotalTable td:nth-child(2),
+      #subtotalTable th:nth-child(3),
+      #subtotalTable td:nth-child(3) {
+        text-align: right;
+      }
+      #holdings th:nth-child(6),
+      #holdings td:nth-child(6) {
+        width: 105px;
+      }
+      #holdings th:nth-child(5),
+      #holdings td:nth-child(5) {
+        width: 100px;
+      }
       th {
         color: var(--muted);
         font-weight: 600;
         background: #faf8f4;
       }
-    input[type="text"],
-    input[type="number"] {
-      width: 100%;
-      border: none;
-      border-radius: 8px;
-      padding: 6px 8px;
-      font-size: 14px;
-      box-sizing: border-box;
-      background: #faf9f6;
-      color: #2a2824;
-    }
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        border: none;
+        border-radius: 8px;
+        padding: 6px 8px;
+        font-size: 14px;
+        box-sizing: border-box;
+        background: #faf9f6;
+        color: #2a2824;
+      }
+      input[type="number"] {
+        text-align: right;
+      }
       textarea {
         width: 100%;
         border: 1px solid #e1ddd5;
@@ -159,7 +210,7 @@
         font-size: 13px;
       }
       #subtotalTable {
-        width: 103%;
+        width: 105%;
       }
       #subtotalTable th:first-child,
       #subtotalTable td:first-child {
@@ -167,7 +218,7 @@
       }
       #subtotalTable th:nth-child(2),
       #subtotalTable td:nth-child(2) {
-        width: 16%;
+        width: 18%;
         white-space: nowrap;
       }
       #subtotalTable th:nth-child(3),
@@ -203,6 +254,28 @@
         height: 10px;
         border-radius: 2px;
         flex: 0 0 auto;
+      }
+      .toast {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        background: #1b1a18;
+        color: #fff;
+        padding: 12px 16px;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+        font-size: 13px;
+        opacity: 0;
+        transform: translateY(8px);
+        pointer-events: none;
+        transition:
+          opacity 0.2s ease,
+          transform 0.2s ease;
+        z-index: 9999;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
       }
       @media (max-width: 900px) {
         table,
@@ -242,17 +315,21 @@
   <body>
     <div class="wrap">
       <header>
-        <h1>보유 종목 테이블</h1>
+        <h3>보유 종목 계산기</h3>
+        <div class="auth-bar" id="authBar">
+          <div class="auth-user" id="authUser">로그인이 필요합니다.</div>
+          <div class="auth-actions" id="authActions"></div>
+        </div>
         <div class="muted">
-          한국 종목(6자리 숫자)은 네이버, 미국/해외 티커는 야후 → 실패 시
+          - 한국 종목(6자리 숫자)은 네이버, 미국/해외 티커는 야후 → 실패 시
           Stooq로 자동 조회됩니다. 모든 금액은 원화로 표시됩니다.
         </div>
         <div class="muted">
-          티커가 na이면 종목명은 “현금/해당없음”, 현재가는 1원으로 계산됩니다.
+          - 티커가 na이면 종목명은 “현금/해당없음”, 현재가는 1원으로 계산됩니다.
         </div>
         <div class="muted">
-          종목유형, 티커, 수량을 입력하고 저장하면 DB에 저장됩니다. “갱신”을
-          누르면 실시간 가격으로 보유금액이 업데이트됩니다.
+          - 종목코드(ticker), 수량(quantity)을 입력하고 저장하면 DB에
+          저장됩니다. “갱신”을 누르면 실시간 가격으로 보유금액이 업데이트됩니다.
         </div>
       </header>
 
@@ -290,11 +367,13 @@
               placeholder="ticker,quantity&#10;064400,664&#10;na,60000"
             ></textarea>
             <button id="importCsvText" class="secondary">
-              CSV 붙여넣고 가져오기
+              CSV형식으로 <br />붙여넣고 <br />자동으로 가져오기
             </button>
           </div>
           <div id="error" class="error"></div>
-          <div id="loading" class="loading" style="display: none">조회 중...</div>
+          <div id="loading" class="loading" style="display: none">
+            조회 중...
+          </div>
           <div class="total">총 보유금액: <span id="total">0</span></div>
         </section>
 
@@ -316,6 +395,7 @@
         </aside>
       </div>
     </div>
+    <div class="toast" id="toast"></div>
 
     <script>
       const tbody = document.querySelector("#holdings tbody");
@@ -325,6 +405,14 @@
       const subtotalBody = document.querySelector("#subtotalTable tbody");
       const pieChartEl = document.getElementById("pieChart");
       const pieLegendEl = document.getElementById("pieLegend");
+      const authUserEl = document.getElementById("authUser");
+      const authActionsEl = document.getElementById("authActions");
+      const addRowBtn = document.getElementById("addRow");
+      const saveAllBtn = document.getElementById("saveAll");
+      const refreshBtn = document.getElementById("refresh");
+      const importBtn = document.getElementById("importCsvText");
+      const toastEl = document.getElementById("toast");
+      let currentUser = null;
 
       function createRow(data = {}) {
         const tr = document.createElement("tr");
@@ -356,9 +444,9 @@
       function setLoading(isLoading, message = "조회 중...") {
         loadingEl.style.display = isLoading ? "block" : "none";
         loadingEl.textContent = message;
-        document.getElementById("saveAll").disabled = isLoading;
-        document.getElementById("refresh").disabled = isLoading;
-        document.getElementById("importCsvText").disabled = isLoading;
+        saveAllBtn.disabled = isLoading;
+        refreshBtn.disabled = isLoading;
+        importBtn.disabled = isLoading;
       }
 
       function parseAmount(text) {
@@ -472,8 +560,8 @@
           );
 
           if (ratio >= 3) {
-            const lx = center + (radius * 0.6) * Math.cos(midAngle) + dx;
-            const ly = center + (radius * 0.6) * Math.sin(midAngle) + dy;
+            const lx = center + radius * 0.6 * Math.cos(midAngle) + dx;
+            const ly = center + radius * 0.6 * Math.sin(midAngle) + dy;
             labelParts.push(
               `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="#1b1a18">${ratio.toFixed(1)}%</text>`,
             );
@@ -513,6 +601,11 @@
         errorEl.textContent = "";
         setLoading(true, "조회 중... (0/0)");
         const res = await fetch(`/api/holdings_raw`);
+        if (res.status === 401) {
+          errorEl.textContent = "로그인이 필요합니다.";
+          setLoading(false);
+          return;
+        }
         if (!res.ok) {
           errorEl.textContent = "목록을 불러오지 못했습니다.";
           setLoading(false);
@@ -643,9 +736,23 @@
         .getElementById("refresh")
         .addEventListener("click", loadHoldings);
 
+      let toastTimer = null;
+      function showToast(message) {
+        toastEl.textContent = message;
+        toastEl.classList.add("show");
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          toastEl.classList.remove("show");
+        }, 2200);
+      }
+
       document
         .getElementById("importCsvText")
         .addEventListener("click", async () => {
+          if (!currentUser) {
+            showToast("CSV 가져오기는 로그인 후에 가능합니다.");
+            return;
+          }
           errorEl.textContent = "";
           setLoading(true, "CSV 가져오는 중...");
           const replace = document.getElementById("replaceAll").checked;
@@ -670,7 +777,62 @@
           await loadHoldings();
         });
 
-      loadHoldings();
+      async function fetchAuth() {
+        const res = await fetch("/auth/me");
+        if (!res.ok) return null;
+        return res.json();
+      }
+
+      function setAuthUI(user) {
+        currentUser = user;
+        authActionsEl.innerHTML = "";
+        if (!user) {
+          authUserEl.textContent = "로그인이 필요합니다.";
+          const loginBtn = document.createElement("button");
+          loginBtn.textContent = "Google로 로그인";
+          loginBtn.addEventListener("click", () => {
+            window.location.href = "/auth/login";
+          });
+          authActionsEl.appendChild(loginBtn);
+          addRowBtn.disabled = true;
+          saveAllBtn.disabled = true;
+          refreshBtn.disabled = true;
+          importBtn.disabled = true;
+          return;
+        }
+
+        authUserEl.innerHTML = "";
+        if (user.picture) {
+          const img = document.createElement("img");
+          img.src = user.picture;
+          img.alt = "프로필";
+          authUserEl.appendChild(img);
+        }
+        const span = document.createElement("span");
+        span.textContent = `${user.name || user.email}님으로 로그인됨`;
+        authUserEl.appendChild(span);
+
+        const logoutBtn = document.createElement("button");
+        logoutBtn.textContent = "로그아웃";
+        logoutBtn.className = "ghost";
+        logoutBtn.addEventListener("click", async () => {
+          await fetch("/auth/logout", { method: "POST" });
+          window.location.reload();
+        });
+        authActionsEl.appendChild(logoutBtn);
+        addRowBtn.disabled = false;
+        saveAllBtn.disabled = false;
+        refreshBtn.disabled = false;
+        importBtn.disabled = false;
+      }
+
+      (async () => {
+        const user = await fetchAuth();
+        setAuthUI(user);
+        if (user) {
+          loadHoldings();
+        }
+      })();
     </script>
   </body>
 </html>
