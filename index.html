@@ -278,6 +278,18 @@
         transform: translateY(0);
       }
       @media (max-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        #subtotalTable {
+          width: 100%;
+        }
+        #holdings th:nth-child(5),
+        #holdings td:nth-child(5),
+        #holdings th:nth-child(6),
+        #holdings td:nth-child(6) {
+          width: auto;
+        }
         table,
         thead,
         tbody,
@@ -308,6 +320,28 @@
           color: var(--muted);
           display: block;
           margin-bottom: 4px;
+        }
+        .actions {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .actions button,
+        .actions textarea {
+          width: 100%;
+        }
+        #subtotalTable td:nth-child(2),
+        #subtotalTable td:nth-child(3),
+        #subtotalTable td:nth-child(4) {
+          text-align: right;
+        }
+        .toast {
+          left: 50%;
+          right: auto;
+          bottom: 16px;
+          transform: translate(-50%, 8px);
+        }
+        .toast.show {
+          transform: translate(-50%, 0);
         }
       }
     </style>
