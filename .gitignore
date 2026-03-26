@@ -19,3 +19,13 @@ build/
 *.tmp
 *.old
 stitch/
+*.log
+logs/
+*.db
+*.sql
+*.sqlite
+*.sqlite3
+*.env
+*.env.*
+*.pem
+*.key
