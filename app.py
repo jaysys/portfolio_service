@@ -26,7 +26,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for older Starlette
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "portfolio.db"
-DEFAULT_LOCAL_SITE_URL = "http://127.0.0.1:8200"
+DEFAULT_LOCAL_SITE_URL = "http://127.0.0.1:7300"
 DEFAULT_PRODUCTION_SITE_URL = "https://stock.smartspace.co.kr"
 
 APP_ENV_ALIASES = {

@@ -9,7 +9,9 @@ const authUserEl = document.getElementById("authUser");
 const authActionsEl = document.getElementById("authActions");
 const holdingsSectionEl = document.querySelector(".layout > section.card");
 const sideCardEl = document.querySelector(".side-card");
+const holdingsPrimaryActionsEl = document.getElementById("holdingsPrimaryActions");
 const subtotalWrapEl = document.querySelector(".subtotal-table-wrap");
+const subtotalSummaryEl = document.getElementById("subtotalSummary");
 const saveAllBtn = document.getElementById("saveAll");
 const refreshBtn = document.getElementById("refresh");
 const importBtn = document.getElementById("importCsvText");
@@ -130,6 +132,12 @@ function updateCsvPlaceholder(hasExistingHoldings) {
   csvTextEl.placeholder = hasExistingHoldings ? CSV_HEADER_TEXT : SAMPLE_CSV_TEXT;
 }
 
+function updateHoldingsPrimaryActionsVisibility(hasHoldings) {
+  if (!holdingsPrimaryActionsEl) return;
+  holdingsPrimaryActionsEl.style.display =
+    currentUser && hasHoldings ? "flex" : "none";
+}
+
 function parseAmount(text) {
   const cleaned = text.replace(/[₩,\\s]/g, "");
   if (!cleaned) return null;
@@ -196,8 +204,15 @@ function renderPie(entries, total) {
   pieLegendEl.innerHTML = "";
   if (!entries.length || total === 0) {
     pieChartEl.textContent = "데이터 없음";
+    pieLegendEl.style.display = "none";
+    subtotalSummaryEl.style.display = "none";
+    subtotalWrapEl.style.display = "none";
     return;
   }
+
+  pieLegendEl.style.display = "";
+  subtotalSummaryEl.style.display = "";
+  subtotalWrapEl.style.display = "";
 
   const size = 280;
   const radius = 125;
@@ -304,16 +319,21 @@ async function loadHoldings() {
   if (res.status === 401) {
     errorEl.textContent = LOGIN_REQUIRED_MESSAGE;
     updateCsvPlaceholder(false);
+    updateHoldingsPrimaryActionsVisibility(false);
+    updateSubtotals([]);
     setLoading(false);
     return;
   }
   if (!res.ok) {
     errorEl.textContent = "목록을 불러오지 못했습니다.";
+    updateHoldingsPrimaryActionsVisibility(false);
+    updateSubtotals([]);
     setLoading(false);
     return;
   }
   const data = await res.json();
   updateCsvPlaceholder(data.length > 0);
+  updateHoldingsPrimaryActionsVisibility(data.length > 0);
   tbody.innerHTML = "";
   let total = 0;
   const failedTickers = [];
@@ -507,7 +527,6 @@ document
       text = SAMPLE_CSV_TEXT;
       replace = true;
       csvTextEl.value = SAMPLE_CSV_TEXT;
-      replaceAllEl.checked = true;
     }
 
     setLoading(true, "CSV 가져오는 중...");
@@ -552,6 +571,7 @@ function setAuthUI(user) {
     saveAllBtn.disabled = true;
     refreshBtn.disabled = true;
     importBtn.disabled = false;
+    updateHoldingsPrimaryActionsVisibility(false);
     // adminMenuEl.classList.remove("show"); // Don't hide the container
     return;
   }
@@ -578,6 +598,7 @@ function setAuthUI(user) {
   saveAllBtn.disabled = false;
   refreshBtn.disabled = false;
   importBtn.disabled = false;
+  updateHoldingsPrimaryActionsVisibility(false);
 
   // 관리자 메뉴 표시 (is_admin 필드가 있고 true일 경우)
   if (user.is_admin) {

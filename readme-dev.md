@@ -31,7 +31,7 @@
 - `.env`
   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET`
 - `.env.dev`
-  `GOOGLE_REDIRECT_URI=http://127.0.0.1:8200/auth/callback`
+  `GOOGLE_REDIRECT_URI=http://127.0.0.1:7300/auth/callback`
   `SESSION_HTTPS_ONLY=false`
   `PROXY_HEADERS=false`
 
@@ -57,13 +57,13 @@ PY
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app:app --host 127.0.0.1 --port 8200 --reload
+uvicorn app:app --host 127.0.0.1 --port 7300 --reload
 ```
 
 접속 주소:
 
-- 앱: `http://127.0.0.1:8200`
-- Swagger UI: `http://127.0.0.1:8200/docs`
+- 앱: `http://127.0.0.1:7300`
+- Swagger UI: `http://127.0.0.1:7300/docs`
 
 ## 4. 종료
 
@@ -72,12 +72,15 @@ uvicorn app:app --host 127.0.0.1 --port 8200 --reload
 포트 점유로 강제 종료가 필요하면:
 
 ```bash
-lsof -ti:8200 | xargs kill -9
+lsof -ti:7300 | xargs kill -9
 ```
 
 ## 5. 기능 확인 포인트
 
-- 로그인 전에는 보유 종목 조작 버튼이 비활성화된다.
+- 미로그인 상태에서 CSV 가져오기 버튼 클릭 시 `/auth/login`으로 이동한다.
+- 보유 자산이 0건이면 `수정사항저장`, `실시간정보갱신` 버튼은 숨겨진다.
+- 보유 자산 차트 데이터가 없으면 차트 카드에 `데이터 없음`만 표시된다.
+- 보유 자산이 1건 이상이면 `수정사항저장`, `실시간정보갱신` 버튼이 표시되고 동작한다.
 - 로그인 후 보유 종목 CRUD와 CSV 가져오기를 사용할 수 있다.
 - 첫 가입자는 관리자 권한을 받는다.
 - 관리자 계정으로 로그인하면 사용자 관리 대시보드를 사용할 수 있다.

@@ -65,10 +65,10 @@ PY
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app:app --host 127.0.0.1 --port 8200 --reload
+uvicorn app:app --host 127.0.0.1 --port 7300 --reload
 ```
 
-브라우저 접속 주소는 `http://127.0.0.1:8200`이다.
+브라우저 접속 주소는 `http://127.0.0.1:7300`이다.
 
 개발환경에서는 기본값이 `development`이므로 보통 `APP_ENV`를 따로 줄 필요가 없다.
 
@@ -77,13 +77,13 @@ uvicorn app:app --host 127.0.0.1 --port 8200 --reload
 운영환경 설정을 적용하려면 프로세스 시작 시 `APP_ENV=prod`를 명시해야 한다.
 
 ```bash
-APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 8200
+APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 7300
 ```
 
 백그라운드 실행 예시:
 
 ```bash
-nohup env APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 8200 > app.log 2>&1 &
+nohup env APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 7300 > app.log 2>&1 &
 ```
 
 운영에서는 `SESSION_SECRET`를 `.env` 파일에 넣지 말고 서버 환경변수로 주는 방식을 권장한다.
@@ -95,19 +95,19 @@ nohup env APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 8200 > app.log 2>
 ```bash
 export SESSION_SECRET='여기에-충분히-긴-랜덤-문자열'
 export APP_ENV=prod
-uvicorn app:app --host 127.0.0.1 --port 8200
+uvicorn app:app --host 127.0.0.1 --port 7300
 ```
 
 한 줄 실행:
 
 ```bash
-SESSION_SECRET='여기에-충분히-긴-랜덤-문자열' APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 8200
+SESSION_SECRET='여기에-충분히-긴-랜덤-문자열' APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 7300
 ```
 
 `nohup` 백그라운드 실행:
 
 ```bash
-nohup env SESSION_SECRET='여기에-충분히-긴-랜덤-문자열' APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 8200 > app.log 2>&1 &
+nohup env SESSION_SECRET='여기에-충분히-긴-랜덤-문자열' APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 7300 > app.log 2>&1 &
 ```
 
 `systemd` 사용 시에는 서비스 파일에 직접 넣거나 `EnvironmentFile`로 분리한다.
@@ -118,7 +118,7 @@ nohup env SESSION_SECRET='여기에-충분히-긴-랜덤-문자열' APP_ENV=prod
 [Service]
 Environment=APP_ENV=prod
 Environment=SESSION_SECRET=여기에-충분히-긴-랜덤-문자열
-ExecStart=/경로/to/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8200
+ExecStart=/경로/to/venv/bin/uvicorn app:app --host 127.0.0.1 --port 7300
 ```
 
 ## OAuth 및 세션 주의사항
@@ -148,6 +148,15 @@ ExecStart=/경로/to/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8200
 - `/admin/users`
   관리자용 사용자 목록/생성/수정/삭제
 
+## UI 동작 규칙 (현행)
+
+- 미로그인 상태에서 CSV 가져오기 버튼을 누르면 `/auth/login`으로 즉시 이동한다.
+- 보유 자산 목록이 0건이면 `수정사항저장`, `실시간정보갱신` 버튼은 화면에서 숨긴다.
+- 보유 자산 목록이 1건 이상이면 위 두 버튼을 표시한다.
+- 보유 자산 차트 데이터가 없으면 차트 카드에는 `데이터 없음`만 표시한다.
+- CSV 입력 placeholder는 보유 자산이 있을 때 `ticker,quantity`만 표시하고, 없을 때 샘플 데이터를 표시한다.
+- CSV의 현금 티커는 `na`, `NA`, `현금`, `cash`, `예수금`을 모두 `NA`로 정규화한다.
+
 ## 가격 조회 규칙
 
 - 한국 종목: 네이버 금융
@@ -163,6 +172,6 @@ ExecStart=/경로/to/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8200
 
 ## 기타
 
-- API 확인은 `http://127.0.0.1:8200/docs`에서 가능하다.
-- 포트가 점유되어 있으면 `lsof -ti:8200 | xargs kill -9`로 종료할 수 있다.
+- API 확인은 `http://127.0.0.1:7300/docs`에서 가능하다.
+- 포트가 점유되어 있으면 `lsof -ti:7300 | xargs kill -9`로 종료할 수 있다.
 - `portfolio.db`는 실행 시 자동 생성된다.
