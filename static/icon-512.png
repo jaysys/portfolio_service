@@ -1,0 +1,10 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="102" fill="#d9c2a6"/>
+  <path d="M128 320L128 192L192 256L256 128L320 224L384 160L384 320L128 320Z" fill="#1b1a18"/>
+  <circle cx="192" cy="256" r="24" fill="#ffffff"/>
+  <circle cx="256" cy="128" r="24" fill="#ffffff"/>
+  <circle cx="320" cy="224" r="24" fill="#ffffff"/>
+  <circle cx="384" cy="160" r="24" fill="#ffffff"/>
+  <text x="256" y="400" text-anchor="middle" fill="#1b1a18" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="42" font-weight="700">보유 종목 계산기</text>
+  <text x="256" y="445" text-anchor="middle" fill="#6b6b63" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="24">포트폴리오 관리 서비스</text>
+</svg>

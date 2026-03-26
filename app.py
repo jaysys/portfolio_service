@@ -15,7 +15,8 @@ from bs4 import BeautifulSoup
 from authlib.integrations.starlette_client import OAuth, OAuthError
 from dotenv import load_dotenv
 from fastapi import Body, FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
 try:
@@ -25,10 +26,24 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for older Starlette
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "portfolio.db"
+DEFAULT_LOCAL_SITE_URL = "http://127.0.0.1:8200"
+DEFAULT_PRODUCTION_SITE_URL = "https://stock.smartspace.co.kr"
 
-APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+APP_ENV_ALIASES = {
+    "dev": "development",
+    "development": "development",
+    "prod": "production",
+    "production": "production",
+}
+
 load_dotenv(BASE_DIR / ".env")
-env_file = BASE_DIR / f".env.{APP_ENV}"
+# Load common settings first, then apply environment-specific overrides.
+raw_app_env = os.getenv("APP_ENV", "development").strip().lower()
+APP_ENV = APP_ENV_ALIASES.get(raw_app_env, raw_app_env)
+env_file = BASE_DIR / {
+    "development": ".env.dev",
+    "production": ".env.prod",
+}.get(APP_ENV, f".env.{APP_ENV}")
 if env_file.exists():
     load_dotenv(env_file, override=True)
 
@@ -39,11 +54,42 @@ SESSION_SECRET = os.getenv("SESSION_SECRET", "").strip() or os.getenv("SECRET_KE
 SESSION_HTTPS_ONLY = os.getenv("SESSION_HTTPS_ONLY", "").strip().lower() in ("1", "true", "yes")
 PROXY_HEADERS = os.getenv("PROXY_HEADERS", "").strip().lower() in ("1", "true", "yes")
 
+WEAK_SESSION_SECRETS = {
+    "",
+    "dev-secret-key",
+    "dev-session-secret",
+    "change-me",
+    "replace-me",
+}
+
 if not SESSION_SECRET:
-    # Fallback for local-only use; override in production via env var.
-    SESSION_SECRET = "dev-session-secret"
+    raise RuntimeError("SESSION_SECRET is required")
+if APP_ENV == "production" and (
+    SESSION_SECRET in WEAK_SESSION_SECRETS or len(SESSION_SECRET) < 32
+):
+    raise RuntimeError(
+        "SESSION_SECRET must be a strong random string of at least 32 characters in production"
+    )
+
+
+def derive_site_url() -> str:
+    if GOOGLE_REDIRECT_URI:
+        redirect_uri = GOOGLE_REDIRECT_URI.rstrip("/")
+        if redirect_uri.endswith("/auth/callback"):
+            return redirect_uri[: -len("/auth/callback")]
+        return redirect_uri
+    if APP_ENV == "production":
+        return DEFAULT_PRODUCTION_SITE_URL
+    return DEFAULT_LOCAL_SITE_URL
+
+
+SITE_URL = derive_site_url()
 
 app = FastAPI()
+
+# Serve bundled frontend assets from ./static.
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 if PROXY_HEADERS:
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(
@@ -62,6 +108,17 @@ if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
         server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
         client_kwargs={"scope": "openid email profile"},
     )
+
+
+def get_google_redirect_uri(request: Request) -> str:
+    if GOOGLE_REDIRECT_URI:
+        return GOOGLE_REDIRECT_URI
+
+    callback_url = request.url_for("auth_callback")
+    scheme = request.headers.get("x-forwarded-proto", callback_url.scheme).split(",")[0].strip()
+    host = request.headers.get("x-forwarded-host", request.headers.get("host", callback_url.netloc)).split(",")[0].strip()
+    return str(callback_url.replace(scheme=scheme, netloc=host))
+
 
 NAME_OVERRIDES = {
     "TSLY": "YieldMax TSLA Option Income Strategy ETF",
@@ -85,7 +142,10 @@ def parse_number(text: str) -> float:
 
 
 def format_ticker(raw: str) -> str:
-    return raw.strip().upper()
+    ticker = raw.strip().upper()
+    if ticker in {"NA", "CASH", "현금".upper(), "예수금".upper()}:
+        return "NA"
+    return ticker
 
 
 def is_korean_ticker(ticker: str) -> bool:
@@ -425,6 +485,24 @@ def apply_migrations(conn: sqlite3.Connection) -> None:
                 "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
                 (migration_id, datetime.now(timezone.utc).isoformat()),
             )
+
+        # Add is_admin column to users table
+        admin_migration_id = "20250211_add_admin_column"
+        admin_applied = conn.execute(
+            "SELECT 1 FROM schema_migrations WHERE id = ?",
+            (admin_migration_id,),
+        ).fetchone()
+        if not admin_applied:
+            user_columns = [
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(users)").fetchall()
+            ]
+            if "is_admin" not in user_columns:
+                conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
+            conn.execute(
+                "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+                (admin_migration_id, datetime.now(timezone.utc).isoformat()),
+            )
         conn.commit()
     finally:
         if conn.in_transaction:
@@ -464,6 +542,17 @@ class HoldingBulk(BaseModel):
     items: list[HoldingCreate]
 
 
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    is_admin: Optional[bool] = None
+
+
+class UserCreate(BaseModel):
+    email: str
+    name: Optional[str] = None
+    is_admin: Optional[bool] = False
+
+
 @app.on_event("startup")
 def on_startup():
     init_db()
@@ -473,6 +562,24 @@ def on_startup():
 def index():
     return FileResponse(BASE_DIR / "index.html")
 
+
+@app.get("/sw.js")
+async def service_worker():
+    return FileResponse(BASE_DIR / "static" / "sw.js", media_type="application/javascript")
+
+
+@app.get("/sitemap.xml")
+async def sitemap():
+    return FileResponse(BASE_DIR / "sitemap.xml")
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt():
+    return f"""User-agent: *
+Allow: /
+Sitemap: {SITE_URL}/sitemap.xml"""
+
+
 def require_user(request: Request) -> sqlite3.Row:
     user_id = request.session.get("user_id")
     if not user_id:
@@ -480,7 +587,7 @@ def require_user(request: Request) -> sqlite3.Row:
     conn = get_db()
     try:
         user = conn.execute(
-            "SELECT id, google_sub, email, name, picture FROM users WHERE id = ?",
+            "SELECT id, google_sub, email, name, picture, is_admin FROM users WHERE id = ?",
             (user_id,),
         ).fetchone()
         if not user:
@@ -490,11 +597,19 @@ def require_user(request: Request) -> sqlite3.Row:
         conn.close()
 
 
+def require_admin(request: Request) -> sqlite3.Row:
+    user = require_user(request)
+    if not user["is_admin"]:
+        raise HTTPException(status_code=403, detail="admin required")
+    return user
+
+
 @app.get("/auth/login")
 async def auth_login(request: Request):
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=500, detail="google oauth not configured")
-    redirect_uri = GOOGLE_REDIRECT_URI or str(request.url_for("auth_callback"))
+
+    redirect_uri = get_google_redirect_uri(request)
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
@@ -508,6 +623,11 @@ async def auth_callback(request: Request):
         try:
             token = await oauth.google.authorize_access_token(request)
         except OAuthError as exc:
+            if "mismatching_state" in str(exc):
+                raise HTTPException(
+                    status_code=400,
+                    detail="oauth state mismatch: 로그인 시작과 콜백의 세션 또는 도메인이 다릅니다. 동일한 호스트로 다시 로그인하세요.",
+                ) from exc
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         user_info = token.get("userinfo")
         if not user_info:
@@ -546,6 +666,11 @@ async def auth_callback(request: Request):
                 "UPDATE holdings SET user_id = ? WHERE user_id IS NULL",
                 (user_id,),
             )
+            # 최초 가입자를 관리자로 지정
+            conn.execute(
+                "UPDATE users SET is_admin = 1 WHERE id = ?",
+                (user_id,),
+            )
 
         conn.commit()
         request.session["user_id"] = user_id
@@ -568,6 +693,7 @@ def auth_me(request: Request):
         "email": user["email"],
         "name": user["name"],
         "picture": user["picture"],
+        "is_admin": bool(user["is_admin"]),
     }
 
 
@@ -778,17 +904,46 @@ def delete_holding(holding_id: int, request: Request):
 
 
 def parse_csv_text(text: str) -> list[tuple[str, str, int]]:
-    reader = csv.DictReader(io.StringIO(text))
-    required_cols = {"ticker", "quantity"}
-    if not required_cols.issubset(set(reader.fieldnames or [])):
-        raise HTTPException(status_code=400, detail="csv must include ticker,quantity")
+    raw_rows = [
+        [cell.strip() for cell in row]
+        for row in csv.reader(io.StringIO(text))
+        if any(cell.strip() for cell in row)
+    ]
+    if not raw_rows:
+        return []
+
+    header = [cell.lstrip("\ufeff").strip().lower() for cell in raw_rows[0]]
+    has_header = "ticker" in header and "quantity" in header
 
     rows = []
-    for row in reader:
-        ticker = format_ticker(row.get("ticker", ""))
+    if has_header:
+        for row in csv.DictReader(io.StringIO(text)):
+            ticker = format_ticker(row.get("ticker", ""))
+            if not ticker:
+                continue
+            qty_raw = row.get("quantity", "0")
+            try:
+                quantity = int(float(qty_raw))
+            except ValueError:
+                quantity = 0
+
+            asset_type = "주식"
+            if is_cash_ticker(ticker):
+                asset_type = "예수금"
+
+            rows.append((asset_type, ticker, quantity))
+        return rows
+
+    for row in raw_rows:
+        if len(row) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="csv rows must include ticker and quantity",
+            )
+        ticker = format_ticker(row[0])
         if not ticker:
             continue
-        qty_raw = row.get("quantity", "0")
+        qty_raw = row[1]
         try:
             quantity = int(float(qty_raw))
         except ValueError:
@@ -898,3 +1053,143 @@ def quote_krw(
         "price": price_krw,
         "currency": "KRW",
     }
+
+
+# Admin API endpoints
+@app.get("/admin/users")
+def list_users(request: Request):
+    admin = require_admin(request)
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """
+            SELECT id, google_sub, email, name, picture, is_admin, created_at
+            FROM users
+            ORDER BY created_at DESC
+            """
+        ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "google_sub": row["google_sub"],
+                "email": row["email"],
+                "name": row["name"],
+                "picture": row["picture"],
+                "is_admin": bool(row["is_admin"]),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+    finally:
+        conn.close()
+
+
+@app.patch("/admin/users/{user_id}")
+def update_user(user_id: int, payload: UserUpdate, request: Request):
+    admin = require_admin(request)
+    if payload.name is None and payload.is_admin is None:
+        raise HTTPException(status_code=400, detail="no fields to update")
+
+    conn = get_db()
+    try:
+        existing = conn.execute(
+            "SELECT id FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="user not found")
+
+        updates = {}
+        if payload.name is not None:
+            updates["name"] = payload.name
+        if payload.is_admin is not None:
+            updates["is_admin"] = 1 if payload.is_admin else 0
+
+        if updates:
+            fields = ", ".join(f"{key} = ?" for key in updates.keys())
+            values = list(updates.values()) + [user_id]
+            conn.execute(f"UPDATE users SET {fields} WHERE id = ?", values)
+            conn.commit()
+
+        row = conn.execute(
+            "SELECT id, google_sub, email, name, picture, is_admin, created_at FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        return {
+            "id": row["id"],
+            "google_sub": row["google_sub"],
+            "email": row["email"],
+            "name": row["name"],
+            "picture": row["picture"],
+            "is_admin": bool(row["is_admin"]),
+            "created_at": row["created_at"],
+        }
+    finally:
+        conn.close()
+
+
+@app.delete("/admin/users/{user_id}", status_code=204)
+def delete_user(user_id: int, request: Request):
+    admin = require_admin(request)
+    conn = get_db()
+    try:
+        # Check if user exists
+        existing = conn.execute(
+            "SELECT id FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="user not found")
+
+        # Delete user's holdings first
+        conn.execute("DELETE FROM holdings WHERE user_id = ?", (user_id,))
+        
+        # Delete user
+        cur = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="user not found")
+    finally:
+        conn.close()
+
+
+@app.post("/admin/users", status_code=201)
+def create_user(payload: UserCreate, request: Request):
+    admin = require_admin(request)
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            """
+            INSERT INTO users (google_sub, email, name, picture, is_admin, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                f"manual_{payload.email}",  # Temporary google_sub for manual users
+                payload.email,
+                payload.name or "",
+                "",
+                1 if payload.is_admin else 0,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        conn.commit()
+        
+        row = conn.execute(
+            "SELECT id, google_sub, email, name, picture, is_admin, created_at FROM users WHERE id = ?",
+            (cur.lastrowid,),
+        ).fetchone()
+        
+        return {
+            "id": row["id"],
+            "google_sub": row["google_sub"],
+            "email": row["email"],
+            "name": row["name"],
+            "picture": row["picture"],
+            "is_admin": bool(row["is_admin"]),
+            "created_at": row["created_at"],
+        }
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail="email already exists")
+    finally:
+        conn.close()

@@ -1,0 +1,20 @@
+.env
+.env.*
+__pycache__/
+*.pyc
+instance/
+venv/
+.DS_Store
+.idea/
+.vscode/
+# *.log
+coverage/
+*.sqlite3
+*.db
+*.egg-info/
+dist/
+build/
+*.bak
+*.swp
+*.tmp
+*.old

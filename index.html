@@ -3,373 +3,153 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>보유 종목 계산기</title>
-    <style>
-      :root {
-        --bg: #f6f3ee;
-        --card: #ffffff;
-        --ink: #1b1a18;
-        --muted: #6b6b63;
-        --accent: #d9c2a6;
-        --line: #e6e2db;
-      }
-      body {
-        margin: 0;
-        font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-        background: linear-gradient(
-          140deg,
-          #f6f3ee 0%,
-          #efe8dc 60%,
-          #f6f3ee 100%
-        );
-        color: var(--ink);
-      }
-      .wrap {
-        max-width: 1100px;
-        margin: 40px auto;
-        padding: 0 20px 60px;
-      }
-      header {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        margin-bottom: 24px;
-      }
-      .auth-bar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        background: var(--card);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 10px 14px;
-      }
-      .auth-user {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 14px;
-        color: var(--muted);
-      }
-      .auth-user img {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 1px solid var(--line);
-      }
-      .auth-actions {
-        display: flex;
-        gap: 8px;
-      }
-      h1 {
-        font-size: 28px;
-        margin: 0;
-      }
-      .provider {
-        display: flex;
-        gap: 16px;
-        align-items: center;
-        padding: 12px 16px;
-        background: var(--card);
-        border-radius: 12px;
-        border: 1px solid var(--line);
-        width: fit-content;
-      }
-      .provider label {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-weight: 600;
-      }
-      .card {
-        background: var(--card);
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 18px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
-      }
-      .layout {
-        display: grid;
-        grid-template-columns: 720px 1.3fr;
-        gap: 18px;
-        align-items: start;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed;
-      }
-      th,
-      td {
-        border-bottom: 1px solid var(--line);
-        padding: 6px 6px;
-        text-align: left;
-        font-size: 14px;
-        vertical-align: middle;
-      }
-      #holdings th:nth-child(4),
-      #holdings td:nth-child(4),
-      #holdings th:nth-child(5),
-      #holdings td:nth-child(5),
-      #holdings th:nth-child(6),
-      #holdings td:nth-child(6),
-      #subtotalTable th:nth-child(2),
-      #subtotalTable td:nth-child(2),
-      #subtotalTable th:nth-child(3),
-      #subtotalTable td:nth-child(3) {
-        text-align: right;
-      }
-      #holdings th:nth-child(6),
-      #holdings td:nth-child(6) {
-        width: 105px;
-      }
-      #holdings th:nth-child(5),
-      #holdings td:nth-child(5) {
-        width: 100px;
-      }
-      th {
-        color: var(--muted);
-        font-weight: 600;
-        background: #faf8f4;
-      }
-      input[type="text"],
-      input[type="number"] {
-        width: 100%;
-        border: none;
-        border-radius: 8px;
-        padding: 6px 8px;
-        font-size: 14px;
-        box-sizing: border-box;
-        background: #faf9f6;
-        color: #2a2824;
-      }
-      input[type="number"] {
-        text-align: right;
-      }
-      textarea {
-        width: 100%;
-        border: 1px solid #e1ddd5;
-        border-radius: 8px;
-        padding: 8px;
-        font-size: 13px;
-        box-sizing: border-box;
-        resize: vertical;
-        min-height: 120px;
-        font-family: "SFMono-Regular", Menlo, Consolas, monospace;
-        background: #faf9f6;
-        color: #2a2824;
-      }
-      .actions {
-        display: flex;
-        gap: 10px;
-        margin-top: 14px;
-      }
-      button {
-        border: none;
-        background: var(--accent);
-        color: #fff;
-        padding: 10px 16px;
-        border-radius: 10px;
-        cursor: pointer;
-        font-weight: 600;
-      }
-      button.secondary,
-      button.ghost {
-        background: var(--accent);
-        color: #fff;
-        border: none;
-      }
-      .muted {
-        color: var(--muted);
-        font-size: 13px;
-      }
-      .total {
-        display: flex;
-        justify-content: flex-end;
-        margin-top: 16px;
-        font-size: 18px;
-        font-weight: 700;
-      }
-      .error {
-        color: #b91c1c;
-        font-size: 13px;
-      }
-      .loading {
-        color: var(--muted);
-        font-size: 13px;
-        margin-top: 6px;
-      }
-      .side-card h2 {
-        margin: 0 0 10px 0;
-        font-size: 16px;
-      }
-      .side-card table th,
-      .side-card table td {
-        font-size: 13px;
-      }
-      #subtotalTable {
-        width: 105%;
-      }
-      #subtotalTable th:first-child,
-      #subtotalTable td:first-child {
-        width: 40%;
-      }
-      #subtotalTable th:nth-child(2),
-      #subtotalTable td:nth-child(2) {
-        width: 18%;
-        white-space: nowrap;
-      }
-      #subtotalTable th:nth-child(3),
-      #subtotalTable td:nth-child(3) {
-        width: 28%;
-        white-space: nowrap;
-      }
-      #subtotalTable th:nth-child(4),
-      #subtotalTable td:nth-child(4) {
-        width: 12%;
-        white-space: nowrap;
-      }
-      .chart {
-        margin-top: 12px;
-        display: flex;
-        justify-content: center;
-      }
-      .legend {
-        margin-top: 10px;
-        margin-bottom: 12px;
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 6px;
-        font-size: 12px;
-        color: var(--muted);
-      }
-      .legend-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .legend-swatch {
-        width: 10px;
-        height: 10px;
-        border-radius: 2px;
-        flex: 0 0 auto;
-      }
-      .toast {
-        position: fixed;
-        right: 24px;
-        bottom: 24px;
-        background: #1b1a18;
-        color: #fff;
-        padding: 12px 16px;
-        border-radius: 10px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
-        font-size: 13px;
-        opacity: 0;
-        transform: translateY(8px);
-        pointer-events: none;
-        transition:
-          opacity 0.2s ease,
-          transform 0.2s ease;
-        z-index: 9999;
-      }
-      .toast.show {
-        opacity: 1;
-        transform: translateY(0);
-      }
-      @media (max-width: 900px) {
-        .layout {
-          grid-template-columns: 1fr;
-        }
-        #subtotalTable {
-          width: 100%;
-        }
-        #holdings th:nth-child(5),
-        #holdings td:nth-child(5),
-        #holdings th:nth-child(6),
-        #holdings td:nth-child(6) {
-          width: auto;
-        }
-        table,
-        thead,
-        tbody,
-        th,
-        td,
-        tr {
-          display: block;
-        }
-        thead {
-          display: none;
-        }
-        tr {
-          border: 1px solid var(--line);
-          border-radius: 10px;
-          margin-bottom: 12px;
-          padding: 10px;
-          background: #fff;
-          overflow: hidden;
-        }
-        td {
-          border: none;
-          padding: 6px 4px;
-          width: 100%;
-        }
-        td::before {
-          content: attr(data-label);
-          font-weight: 600;
-          color: var(--muted);
-          display: block;
-          margin-bottom: 4px;
-        }
-        .actions {
-          flex-direction: column;
-          align-items: stretch;
-        }
-        .actions button,
-        .actions textarea {
-          width: 100%;
-        }
-        #subtotalTable td:nth-child(2),
-        #subtotalTable td:nth-child(3),
-        #subtotalTable td:nth-child(4) {
-          text-align: right;
-        }
-        .toast {
-          left: 50%;
-          right: auto;
-          bottom: 16px;
-          transform: translate(-50%, 8px);
-        }
-        .toast.show {
-          transform: translate(-50%, 0);
-        }
-      }
-    </style>
+    <title>보유 종목 계산기 - 무료 포트폴리오 관리 및 실시간 조회</title>
+
+    <!-- SEO Meta Tags -->
+    <meta
+      name="description"
+      content="무료 보유 종목 계산기로 포트폴리오를 관리하세요. 한국 주식, 미국 주식, ETF 실시간 가격 조회 및 자산 배분 분석. 네이버, 야후 파이낸스 데이터 연동으로 정확한 가격 제공."
+    />
+    <meta
+      name="keywords"
+      content="보유 종목 계산기, 포트폴리오 관리, 주식 계산기, ETF 계산기, 실시간 주식 가격, 자산 관리, 투자 포트폴리오, 한국 주식, 미국 주식, 무료 주식 계산기"
+    />
+    <meta name="author" content="Portfolio Service" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://stock.smartspace.co.kr/" />
+
+    <!-- Open Graph Meta Tags -->
+    <meta
+      property="og:title"
+      content="보유 종목 계산기 - 무료 포트폴리오 관리 및 실시간 주식 가격 조회"
+    />
+    <meta
+      property="og:description"
+      content="무료 보유 종목 계산기로 포트폴리오를 관리하세요. 한국 주식, 미국 주식, ETF 실시간 가격 조회 및 자산 배분 분석."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://stock.smartspace.co.kr/" />
+    <meta
+      property="og:image"
+      content="https://stock.smartspace.co.kr/static/portfolio-service-og-image.jpg"
+    />
+    <meta property="og:site_name" content="Portfolio Service" />
+    <meta property="og:locale" content="ko_KR" />
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="보유 종목 계산기 - 무료 포트폴리오 관리"
+    />
+    <meta
+      name="twitter:description"
+      content="한국 주식, 미국 주식, ETF 실시간 가격 조회 및 자산 배분 분석"
+    />
+    <meta
+      name="twitter:image"
+      content="https://stock.smartspace.co.kr/static/portfolio-service-twitter-image.jpg"
+    />
+
+    <!-- Additional SEO Tags -->
+    <meta name="theme-color" content="#d9c2a6" />
+    <meta name="msapplication-TileColor" content="#d9c2a6" />
+
+    <!-- Favicon and Icons -->
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/static/favicon-32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/static/favicon-16.png"
+    />
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icon-192.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href="/static/icon-192.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="512x512"
+      href="/static/icon-512.png"
+    />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json" />
+
+    <!-- Sitemap -->
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+
+    <script
+      async
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7611240025188124"
+      crossorigin="anonymous"
+    ></script>
+
+    <link rel="stylesheet" href="/static/index.css" />
   </head>
+
   <body>
     <div class="wrap">
-      <header>
-        <h3>보유 종목 계산기</h3>
+            <header>
+              <div class="admin-menu" id="adminMenu">
+                <button id="pwaInstallBtn" class="btn-small" style="display: none; background: var(--accent); color: white; margin-right: 8px;">앱 설치하기</button>
+                <button id="adminBtn" class="btn-small btn-add">사용자 관리</button>
+              </div>
+              <h1>보유 종목 계산기 <span class="h1-sub">- 무료 포트폴리오 관리 및 실시간 조회</span></h1>
+      
         <div class="auth-bar" id="authBar">
-          <div class="auth-user" id="authUser">로그인이 필요합니다.</div>
+          <div class="auth-user" id="authUser">
+            Google로 로그인해야 사용가능합니다.
+          </div>
           <div class="auth-actions" id="authActions"></div>
-        </div>
-        <div class="muted">
-          - 한국 종목(6자리 숫자)은 네이버, 미국/해외 티커는 야후 → 실패 시
-          Stooq로 자동 조회됩니다. 모든 금액은 원화로 표시됩니다.
-        </div>
-        <div class="muted">
-          - 티커가 na이면 종목명은 “현금/해당없음”, 현재가는 1원으로 계산됩니다.
-        </div>
-        <div class="muted">
-          - 종목코드(ticker), 수량(quantity)을 입력하고 저장하면 DB에
-          저장됩니다. “갱신”을 누르면 실시간 가격으로 보유금액이 업데이트됩니다.
         </div>
       </header>
 
+      <!-- Admin Dashboard -->
+      <div class="admin-dashboard" id="adminDashboard">
+        <div class="admin-header">
+          <h2>사용자 관리 대시보드</h2>
+          <button id="closeAdminBtn" class="btn-small">닫기</button>
+        </div>
+
+        <div class="admin-header">
+          <button id="addUserBtn" class="btn-small btn-add">사용자 추가</button>
+          <button id="refreshUsersBtn" class="btn-small">새로고침</button>
+        </div>
+
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>사용자</th>
+              <th>이메일</th>
+              <th>가입일</th>
+              <th>관리자</th>
+              <th>작업</th>
+            </tr>
+          </thead>
+          <tbody id="userTableBody">
+            <tr>
+              <td colspan="5" style="text-align: center; padding: 20px">
+                로딩 중...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <div class="layout">
         <section class="card">
+          <h2 class="section-title">보유 자산 목록</h2>
           <table id="holdings">
             <thead>
               <tr>
@@ -385,24 +165,25 @@
             <tbody></tbody>
           </table>
           <div class="actions">
-            <button id="addRow">행 추가</button>
-            <button id="saveAll" class="secondary">구성 정보 저장</button>
-            <button id="refresh" class="ghost">실시간 가격 갱신</button>
+            <button id="saveAll" class="secondary">수정사항저장</button>
+            <button id="refresh" class="ghost">실시간정보갱신</button>
           </div>
           <div class="actions">
             <label class="muted"
-              ><input type="checkbox" id="replaceAll" /> 기존 데이터 삭제 후
-              가져오기</label
+              ><input type="checkbox" id="replaceAll" /> 과거 데이터 삭제</label
             >
           </div>
           <div class="actions">
             <textarea
               id="csvText"
-              rows="6"
-              placeholder="ticker,quantity&#10;064400,664&#10;na,60000"
+              rows="12"
+              placeholder="ticker,quantity&#10;005930,10&#10;005380,10&#10;000660,10&#10;035420,10&#10;064400,10&#10;018260,10&#10;na,600000"
             ></textarea>
             <button id="importCsvText" class="secondary">
-              CSV형식으로 <br />붙여넣고 <br />자동으로 가져오기
+              샘플처럼<br />
+              입력하고<br />
+              이 버튼을<br />
+              누르세요
             </button>
           </div>
           <div id="error" class="error"></div>
@@ -413,462 +194,250 @@
         </section>
 
         <aside class="card side-card">
-          <h2>종목명 기준 서브합</h2>
+          <h2 class="section-title">보유 자산 차트</h2>
           <div class="chart" id="pieChart"></div>
           <div class="legend" id="pieLegend"></div>
-          <table id="subtotalTable">
-            <thead>
-              <tr>
-                <th>종목명</th>
-                <th>수량 합</th>
-                <th>서브합(₩)</th>
-                <th>비중</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+          <div class="subtotal-summary" id="subtotalSummary">
+            총 자산 가치: <span id="summaryTotal">0</span>
+          </div>
+          <div class="subtotal-table-wrap">
+            <table id="subtotalTable">
+              <thead>
+                <tr>
+                  <th>종목명</th>
+                  <th>수량 합</th>
+                  <th>서브합(₩)</th>
+                  <th>비중</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </aside>
       </div>
+
+      <details class="card how-to-use seo-mini-card how-to-use-toggle" style="margin-top: 24px">
+        <summary>서비스 이용 방법</summary>
+        <div class="seo-mini-body how-to-use-toggle-body">
+          <h2 class="section-title">서비스 이용 방법</h2>
+          <ol>
+            <li>Google 계정으로 로그인해야 사용가능합니다.</li>
+            <li>
+              종목코드(티커)와 수량 입력 (주식: 064400, 664주 | 예수금: na,
+              60000원)
+            </li>
+            <li>
+              텍스트 (CSV 형식, 입력박스 샘플 형태)로 정리한 후에 입력박스에
+              붙여넣고 "자동으로 가져오기" 수행합니다. (추천!!)
+            </li>
+          </ol>
+        </div>
+      </details>
+
+      <!-- 수행 결과 예시 -->
+      <div class="card" style="margin-top: 24px">
+        <h2 class="section-title">수행 결과 예시</h2>
+        <img
+          src="/static/sample.jpg"
+          alt="포트폴리오 관리 수행 결과 예시"
+          style="
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+          "
+        />
+      </div>
+
+      <details class="card seo-mini-card supported-stocks" style="margin-top: 24px">
+        <summary>지원 종목 및 자산</summary>
+        <div class="seo-mini-body">
+          <h2 class="section-title">지원 종목 및 자산</h2>
+          <div class="stock-categories">
+            <div class="category">
+              <h3>한국 주식</h3>
+              <ul>
+                <li>삼성전자(005930), LG엔솔(373220), SK하이닉스(000660) 등</li>
+                <li>KOSPI / KOSDAQ 전 종목 실시간 시세 지원</li>
+              </ul>
+            </div>
+            <div class="category">
+              <h3>미국 주식</h3>
+              <ul>
+                <li>애플(AAPL), 마이크로소프트(MSFT), 아마존(AMZN) 등</li>
+                <li>나스닥(NASDAQ) / 뉴욕거래소(NYSE) 주요 종목</li>
+              </ul>
+            </div>
+            <div class="category">
+              <h3>ETF / 예수금</h3>
+              <ul>
+                <li>국내 TIGER, KODEX 및 해외 SPY, QQQ 등 ETF 전 종목</li>
+                <li>원화 및 외화 예수금(Ticker: NA) 관리 지원</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <div class="seo-mini-grid" style="margin-top: 24px">
+        <details class="card seo-mini-card">
+          <summary>서비스 주요 기능</summary>
+          <div class="seo-mini-body">
+            <h2 class="section-title">서비스 주요 기능</h2>
+            <ul class="feature-list">
+              <li>
+                <strong>주식 정보 관리</strong> - CSV 형식으로 간편하게 가져오고
+                저장, 관리하기
+              </li>
+              <li>
+                <strong>실시간 주식 가격 조회</strong> - 네이버, 야후 파이낸스,
+                Stooq 연동으로 정확한 시세 제공
+              </li>
+              <li>
+                <strong>다양한 자산 지원</strong> - 한국 주식(6자리), 미국 주식,
+                ETF, 예수금 관리
+              </li>
+              <li>
+                <strong>자동 환율 적용</strong> - 해외 주식 원화 환산으로 통합
+                자산 관리
+              </li>
+              <li>
+                <strong>포트폴리오 분석</strong> - 파이 차트 시각화 및 자산 배분
+                비중 분석
+              </li>
+            </ul>
+          </div>
+        </details>
+        <details class="card seo-mini-card">
+          <summary>포트폴리오 관리 가이드</summary>
+          <div class="seo-mini-body">
+            <h2 class="section-title">포트폴리오 관리 가이드</h2>
+            <p>
+              성공적인 투자를 위해서는 체계적인 포트폴리오 관리가 필수적입니다.
+              본 보유 종목 계산기를 통해 현재 보유 자산의 가치를 실시간으로
+              확인하고, 자산 배분 현황을 분석하여 더 나은 투자 결정을 내릴 수
+              있습니다.
+            </p>
+            <h3>실시간 시세 데이터의 활용</h3>
+            <p>
+              정확한 실시간 주식 가격 정보는 투자 결정의 핵심입니다. 네이버
+              금융, 야후 파이낸스 등 신뢰할 수 있는 데이터 소스를 통해 제공되는
+              시세 정보를 활용하여 포트폴리오의 현재 가치를 정확하게 파악할 수
+              있습니다.
+            </p>
+            <h3>자산 배분 전략</h3>
+            <p>
+              파이 차트 시각화를 통해 각 종목별 비중을 쉽게 확인할 수 있습니다.
+              적정 자산 배분은 리스크 관리와 수익률 최적화의 핵심 요소입니다.
+              정기적인 포트폴리오 리밸런싱을 통해 목표 자산 배분을 유지하는 것이
+              중요합니다.
+            </p>
+            <h3>한국 및 해외 주식 투자</h3>
+            <p>
+              국내 주식 시장뿐만 아니라 미국 주식 시장에 대한 투자도 늘고
+              있습니다. 본 서비스는 한국 주식(KOSPI, KOSDAQ)과 미국 주식(나스닥,
+              NYSE)을 모두 지원하여 글로벌 자산 관리를 용이하게 합니다.
+            </p>
+            <h3>ETF 투자의 장점</h3>
+            <p>
+              ETF(상장지수펀드)는 개별 주식에 비해 분산 투자 효과가 뛰어나고 운용
+              수수료가 저렴하여 장기 투자에 적합합니다. 다양한 ETF 상품을 통해
+              특정 산업이나 지역, 테마에 투자할 수 있습니다.
+            </p>
+          </div>
+        </details>
+      </div>
     </div>
+    <!-- End of .wrap -->
+
     <div class="toast" id="toast"></div>
 
-    <script>
-      const tbody = document.querySelector("#holdings tbody");
-      const totalEl = document.getElementById("total");
-      const errorEl = document.getElementById("error");
-      const loadingEl = document.getElementById("loading");
-      const subtotalBody = document.querySelector("#subtotalTable tbody");
-      const pieChartEl = document.getElementById("pieChart");
-      const pieLegendEl = document.getElementById("pieLegend");
-      const authUserEl = document.getElementById("authUser");
-      const authActionsEl = document.getElementById("authActions");
-      const addRowBtn = document.getElementById("addRow");
-      const saveAllBtn = document.getElementById("saveAll");
-      const refreshBtn = document.getElementById("refresh");
-      const importBtn = document.getElementById("importCsvText");
-      const toastEl = document.getElementById("toast");
-      let currentUser = null;
-
-      function createRow(data = {}) {
-        const tr = document.createElement("tr");
-        tr.dataset.id = data.id || "";
-        tr.innerHTML = `
-        <td data-label="종목유형"><input type="text" placeholder="ETF/주식/예수금" value="${data.asset_type || "주식"}" /></td>
-        <td data-label="티커"><input type="text" placeholder="예: 005930, AAPL" value="${data.ticker || ""}" /></td>
-        <td data-label="종목명" class="name">${data.name || "-"}</td>
-        <td data-label="현재가" class="price">${data.price ? formatMoney(data.price, data.currency === "KRW" ? "₩" : data.currency) : "-"}</td>
-        <td data-label="수량"><input type="number" min="0" step="1" value="${data.quantity ?? 0}" /></td>
-        <td data-label="보유금액" class="amount">${data.amount ? formatMoney(data.amount, data.currency === "KRW" ? "₩" : data.currency) : "-"}</td>
-        <td data-label="삭제"><button class="ghost remove">삭제</button></td>
-      `;
-        tr.querySelector(".remove").addEventListener("click", () =>
-          handleDelete(tr),
-        );
-        return tr;
-      }
-
-      function formatMoney(value, currency = "") {
-        if (value === null || value === undefined || Number.isNaN(value))
-          return "-";
-        const formatter = new Intl.NumberFormat("ko-KR", {
-          maximumFractionDigits: 2,
-        });
-        return `${currency ? currency + " " : ""}${formatter.format(value)}`;
-      }
-
-      function setLoading(isLoading, message = "조회 중...") {
-        loadingEl.style.display = isLoading ? "block" : "none";
-        loadingEl.textContent = message;
-        saveAllBtn.disabled = isLoading;
-        refreshBtn.disabled = isLoading;
-        importBtn.disabled = isLoading;
-      }
-
-      function parseAmount(text) {
-        const cleaned = text.replace(/[₩,\\s]/g, "");
-        if (!cleaned) return null;
-        const value = Number(cleaned);
-        return Number.isNaN(value) ? null : value;
-      }
-
-      function updateSubtotals(entries) {
-        const totals = new Map();
-        const qtyTotals = new Map();
-        let grandTotal = 0;
-        entries.forEach((row) => {
-          if (row.amount === null || row.amount === undefined) return;
-          grandTotal += row.amount;
-          const key = row.name || "-";
-          totals.set(key, (totals.get(key) || 0) + row.amount);
-          const qty = Number(row.quantity || 0);
-          qtyTotals.set(key, (qtyTotals.get(key) || 0) + qty);
-        });
-
-        const list = Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
-        subtotalBody.innerHTML = "";
-        list.forEach(([name, amount]) => {
-          const ratio = grandTotal > 0 ? (amount / grandTotal) * 100 : 0;
-          const qtySum = qtyTotals.get(name) || 0;
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${name}</td>
-            <td>${new Intl.NumberFormat("ko-KR").format(qtySum)}</td>
-            <td>${formatMoney(amount, "₩")}</td>
-            <td>${ratio.toFixed(1)}%</td>
-          `;
-          subtotalBody.appendChild(tr);
-        });
-
-        renderPie(list, grandTotal);
-      }
-
-      function updateSubtotalsFromDom() {
-        const rows = Array.from(tbody.querySelectorAll("tr"));
-        const entries = rows.map((row) => {
-          const name = row.querySelector(".name")?.textContent || "-";
-          const amountText = row.querySelector(".amount")?.textContent || "";
-          const amount = parseAmount(amountText);
-          const qtyValue = Number(
-            row.querySelector("td:nth-child(5) input")?.value || 0,
-          );
-          return { name, amount, quantity: qtyValue };
-        });
-        updateSubtotals(entries);
-      }
-
-      function renderPie(entries, total) {
-        pieChartEl.innerHTML = "";
-        pieLegendEl.innerHTML = "";
-        if (!entries.length || total === 0) {
-          pieChartEl.textContent = "데이터 없음";
-          return;
-        }
-
-        const size = 234;
-        const radius = 104;
-        const center = size / 2;
-        const colors = [
-          "#0f766e",
-          "#3f4e4f",
-          "#a66e4a",
-          "#7b8a70",
-          "#c37b6a",
-          "#5c6b73",
-          "#9a7d6a",
-          "#6d8b74",
-        ];
-        const svgDefs = `
-          <defs>
-            <radialGradient id="pieShade" cx="35%" cy="35%" r="70%">
-              <stop offset="0%" stop-color="#ffffff" stop-opacity="0.6" />
-              <stop offset="65%" stop-color="#ffffff" stop-opacity="0.0" />
-              <stop offset="100%" stop-color="#000000" stop-opacity="0.08" />
-            </radialGradient>
-            <filter id="pieShadow" x="-30%" y="-30%" width="160%" height="160%">
-              <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18" />
-            </filter>
-          </defs>
-        `;
-
-        let startAngle = -Math.PI / 2;
-        const svgParts = [];
-        const labelParts = [];
-
-        entries.forEach(([name, amount], idx) => {
-          const angle = (amount / total) * Math.PI * 2;
-          const ratio = total > 0 ? (amount / total) * 100 : 0;
-          const endAngle = startAngle + angle;
-          const largeArc = angle > Math.PI ? 1 : 0;
-          const x1 = center + radius * Math.cos(startAngle);
-          const y1 = center + radius * Math.sin(startAngle);
-          const x2 = center + radius * Math.cos(endAngle);
-          const y2 = center + radius * Math.sin(endAngle);
-          const color = colors[idx % colors.length];
-
-          const midAngle = startAngle + angle / 2;
-          const explode = 4;
-          const dx = Math.cos(midAngle) * explode;
-          const dy = Math.sin(midAngle) * explode;
-
-          svgParts.push(
-            `<path d="M ${center} ${center} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z" fill="${color}" stroke="#f6f3ee" stroke-width="2" filter="url(#pieShadow)" transform="translate(${dx}, ${dy})"></path>`,
-          );
-
-          if (ratio >= 3) {
-            const lx = center + radius * 0.6 * Math.cos(midAngle) + dx;
-            const ly = center + radius * 0.6 * Math.sin(midAngle) + dy;
-            const subtotalText = idx < 3 ? ` / ${formatMoney(amount, "₩")}` : "";
-            labelParts.push(
-              `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="#1b1a18">${ratio.toFixed(1)}%${subtotalText}</text>`,
-            );
-          }
-
-          const legendItem = document.createElement("div");
-          legendItem.className = "legend-item";
-          legendItem.innerHTML = `<span class="legend-swatch" style="background:${color}"></span>${name} (${ratio.toFixed(1)}%)`;
-          pieLegendEl.appendChild(legendItem);
-
-          startAngle = endAngle;
-        });
-
-        pieChartEl.innerHTML = `
-          <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-            ${svgDefs}
-            ${svgParts.join("")}
-            <circle cx="${center}" cy="${center}" r="${radius}" fill="url(#pieShade)" />
-            ${labelParts.join("")}
-          </svg>
-        `;
-      }
-
-      async function fetchQuote(ticker) {
-        const res = await fetch(
-          `/api/quote?ticker=${encodeURIComponent(ticker)}`,
-        );
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          const msg = data.detail || "조회 실패";
-          throw new Error(`${ticker}: ${msg}`);
-        }
-        return res.json();
-      }
-
-      async function loadHoldings() {
-        errorEl.textContent = "";
-        setLoading(true, "조회 중... (0/0)");
-        const res = await fetch(`/api/holdings_raw`);
-        if (res.status === 401) {
-          errorEl.textContent = "로그인이 필요합니다.";
-          setLoading(false);
-          return;
-        }
-        if (!res.ok) {
-          errorEl.textContent = "목록을 불러오지 못했습니다.";
-          setLoading(false);
-          return;
-        }
-        const data = await res.json();
-        tbody.innerHTML = "";
-        let total = 0;
-        const failedTickers = [];
-        data.forEach((row) => {
-          tbody.appendChild(createRow(row));
-        });
-
-        for (let i = 0; i < data.length; i++) {
-          const row = data[i];
-          setLoading(
-            true,
-            `조회 중... (${i + 1}/${data.length}) ${row.ticker}`,
-          );
-          const tr = tbody.children[i];
-          const nameEl = tr.querySelector(".name");
-          const priceEl = tr.querySelector(".price");
-          const amountEl = tr.querySelector(".amount");
-          try {
-            const resQuote = await fetch(
-              `/api/quote_krw?ticker=${encodeURIComponent(row.ticker)}`,
-            );
-            if (!resQuote.ok) {
-              const data = await resQuote.json().catch(() => ({}));
-              const detail = data.detail || "조회 실패";
-              throw new Error(detail);
-            }
-            const quote = await resQuote.json();
-            nameEl.textContent = quote.name;
-            priceEl.textContent = formatMoney(quote.price, "₩");
-            const amount = quote.price * row.quantity;
-            amountEl.textContent = formatMoney(amount, "₩");
-            total += amount;
-            row.name = quote.name;
-            row.amount = amount;
-            row.quantity = row.quantity ?? 0;
-          } catch (err) {
-            nameEl.textContent = "조회실패";
-            priceEl.textContent = "-";
-            amountEl.textContent = "-";
-            failedTickers.push(`${row.ticker}(${err.message})`);
-            row.name = "조회실패";
-            row.amount = null;
-            row.quantity = row.quantity ?? 0;
-          }
-        }
-
-        totalEl.textContent = formatMoney(total, "₩");
-        if (failedTickers.length > 0) {
-          errorEl.textContent = `조회 실패 종목: ${failedTickers.join(", ")}`;
-        }
-        if (data.length === 0) tbody.appendChild(createRow());
-        updateSubtotals(data);
-        setLoading(false);
-      }
-
-      async function handleSaveAll() {
-        errorEl.textContent = "";
-        setLoading(true, "저장 및 재계산 중...");
-        const rows = Array.from(tbody.querySelectorAll("tr"));
-        const items = [];
-        for (const row of rows) {
-          const assetType = row
-            .querySelector("td:nth-child(1) input")
-            .value.trim();
-          const ticker = row
-            .querySelector("td:nth-child(2) input")
-            .value.trim();
-          const quantity = Number(
-            row.querySelector("td:nth-child(5) input").value || 0,
-          );
-          if (!ticker) {
-            continue;
-          }
-          items.push({ asset_type: assetType || "주식", ticker, quantity });
-        }
-
-        const res = await fetch("/api/holdings/bulk_replace", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items }),
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          errorEl.textContent = data.detail || "저장 실패";
-          setLoading(false);
-          return;
-        }
-        await loadHoldings();
-      }
-
-      function recalcTotal() {
-        const rows = Array.from(tbody.querySelectorAll("tr"));
-        let total = 0;
-        rows.forEach((row) => {
-          const amountEl = row.querySelector(".amount");
-          const value = parseAmount(amountEl.textContent);
-          if (value !== null) total += value;
-        });
-        totalEl.textContent = formatMoney(total, "₩");
-        updateSubtotalsFromDom();
-      }
-
-      async function handleDelete(row) {
-        const id = row.dataset.id;
-        row.remove();
-        recalcTotal();
-        if (!id) return;
-        const res = await fetch(`/api/holdings/${id}`, { method: "DELETE" });
-        if (!res.ok) {
-          errorEl.textContent = "삭제 실패";
+    <!-- Structured Data for SEO -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "보유 종목 계산기",
+        "description": "무료 포트폴리오 관리 및 실시간 주식 가격 조회 서비스",
+        "url": "https://stock.smartspace.co.kr/",
+        "applicationCategory": "FinanceApplication",
+        "operatingSystem": "Web Browser",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "KRW"
+        },
+        "provider": {
+          "@type": "Organization",
+          "name": "Portfolio Service"
+        },
+        "featureList": [
+          "실시간 주식 가격 조회",
+          "포트폴리오 관리",
+          "자산 배분 분석",
+          "CSV 데이터 관리",
+          "모바일 최적화"
+        ],
+        "audience": {
+          "@type": "Audience",
+          "audienceType": "개인 투자자"
         }
       }
-
-      document.getElementById("addRow").addEventListener("click", () => {
-        tbody.appendChild(createRow());
-      });
-
-      document
-        .getElementById("saveAll")
-        .addEventListener("click", handleSaveAll);
-      document
-        .getElementById("refresh")
-        .addEventListener("click", loadHoldings);
-
-      let toastTimer = null;
-      function showToast(message) {
-        toastEl.textContent = message;
-        toastEl.classList.add("show");
-        if (toastTimer) clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => {
-          toastEl.classList.remove("show");
-        }, 2200);
-      }
-
-      document
-        .getElementById("importCsvText")
-        .addEventListener("click", async () => {
-          if (!currentUser) {
-            showToast("CSV 가져오기는 로그인 후에 가능합니다.");
-            return;
-          }
-          errorEl.textContent = "";
-          setLoading(true, "CSV 가져오는 중...");
-          const replace = document.getElementById("replaceAll").checked;
-          const text = document.getElementById("csvText").value.trim();
-          if (!text) {
-            errorEl.textContent = "CSV 텍스트를 붙여넣으세요.";
-            setLoading(false);
-            return;
-          }
-          const res = await fetch(`/api/import_csv_text?replace=${replace}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ csv: text }),
-          });
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            errorEl.textContent = data.detail || "CSV 붙여넣기 실패";
-            setLoading(false);
-            return;
-          }
-          document.getElementById("csvText").value = "";
-          await loadHoldings();
-        });
-
-      async function fetchAuth() {
-        const res = await fetch("/auth/me");
-        if (!res.ok) return null;
-        return res.json();
-      }
-
-      function setAuthUI(user) {
-        currentUser = user;
-        authActionsEl.innerHTML = "";
-        if (!user) {
-          authUserEl.textContent = "로그인이 필요합니다.";
-          const loginBtn = document.createElement("button");
-          loginBtn.textContent = "Google로 로그인";
-          loginBtn.addEventListener("click", () => {
-            window.location.href = "/auth/login";
-          });
-          authActionsEl.appendChild(loginBtn);
-          addRowBtn.disabled = true;
-          saveAllBtn.disabled = true;
-          refreshBtn.disabled = true;
-          importBtn.disabled = true;
-          return;
-        }
-
-        authUserEl.innerHTML = "";
-        if (user.picture) {
-          const img = document.createElement("img");
-          img.src = user.picture;
-          img.alt = "프로필";
-          authUserEl.appendChild(img);
-        }
-        const span = document.createElement("span");
-        span.textContent = `${user.name || user.email}님으로 로그인됨`;
-        authUserEl.appendChild(span);
-
-        const logoutBtn = document.createElement("button");
-        logoutBtn.textContent = "로그아웃";
-        logoutBtn.className = "ghost";
-        logoutBtn.addEventListener("click", async () => {
-          await fetch("/auth/logout", { method: "POST" });
-          window.location.reload();
-        });
-        authActionsEl.appendChild(logoutBtn);
-        addRowBtn.disabled = false;
-        saveAllBtn.disabled = false;
-        refreshBtn.disabled = false;
-        importBtn.disabled = false;
-      }
-
-      (async () => {
-        const user = await fetchAuth();
-        setAuthUI(user);
-        if (user) {
-          loadHoldings();
-        }
-      })();
     </script>
+
+    <script src="/static/index.js"></script>
+
+    <!-- User Modal -->
+    <div class="modal" id="userModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalTitle">사용자 추가</h3>
+          <button id="closeModalBtn" class="btn-small">닫기</button>
+        </div>
+        <form id="userForm">
+          <div class="form-group">
+            <label for="userEmail">이메일 *</label>
+            <input type="email" id="userEmail" required />
+          </div>
+          <div class="form-group">
+            <label for="userName">이름</label>
+            <input type="text" id="userName" />
+          </div>
+          <div class="form-group">
+            <div class="checkbox-group">
+              <input type="checkbox" id="userIsAdmin" />
+              <label for="userIsAdmin">관리자 권한 부여</label>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="cancelModalBtn" class="btn-small">
+              취소
+            </button>
+            <button
+              type="submit"
+              class="btn-small btn-add"
+              onclick="handleSaveUser(event)"
+            >
+              저장
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal dialog-modal" id="dialogModal">
+      <div class="modal-content dialog-content">
+        <div class="modal-header">
+          <h3 id="dialogTitle">안내</h3>
+          <button type="button" id="dialogCloseBtn" class="btn-small">닫기</button>
+        </div>
+        <p id="dialogMessage" class="dialog-message"></p>
+        <div class="modal-actions dialog-actions">
+          <button type="button" id="dialogCancelBtn" class="ghost">취소</button>
+          <button type="button" id="dialogConfirmBtn" class="secondary">확인</button>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

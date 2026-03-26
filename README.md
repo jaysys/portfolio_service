@@ -1,155 +1,168 @@
 # Portfolio Service
 
-사용자가 보유 종목을 입력하면 실시간 시세를 조회해 원화 기준 보유금액을 계산하는 웹서비스입니다.
+실시간 시세를 기준으로 한국 주식, 미국 주식, ETF, 예수금을 KRW 기준 포트폴리오로 관리하는 FastAPI + Vanilla JS 서비스다.
 
-## 구성 파일
+## 개요
+
+- Google OAuth 로그인 기반 세션 인증
+- 사용자별 보유 종목 저장 및 실시간 평가금액 계산
+- CSV 붙여넣기 기반 일괄 교체/가져오기
+- 자산 비중 차트 및 종목별 서브합 집계
+- 첫 가입자 관리자 자동 지정 및 사용자 관리 기능
+- PWA 설치 지원, SEO 메타/사이트맵/robots 제공
+
+## 구성
 
 - `app.py`
-  - FastAPI 서버 진입점
-  - SQLite(`portfolio.db`)에 종목 정보 저장/수정/삭제
-  - 가격 조회 로직
-    - 한국 종목(6자리 숫자, 예: 005930, 0091P0 등): 네이버 조회
-    - 해외/미국 종목: 야후 → 야후 HTML → Investing → Stooq 순서로 폴백
-  - 환율은 야후 → exchangerate.host → open.er-api.com 순으로 폴백
-
+  FastAPI 서버, OAuth, 세션, SQLite, 가격 조회 API, 관리자 API
 - `index.html`
-  - 사용자 입력 UI (종목유형/티커/수량)
-  - CSV 텍스트 붙여넣기 가져오기
-  - 실시간 가격 갱신 및 총합 표시
-
-- `requirements.txt`
-  - 실행에 필요한 파이썬 의존성 목록
-
+  메인 화면, SEO 메타, 관리자 모달, 사용 안내
+- `static/index.js`
+  인증 UI, 보유 종목 CRUD, CSV 가져오기, 관리자 화면, PWA 설치 흐름
+- `static/index.css`
+  서비스 전체 스타일
+- `sitemap.xml`
+  운영 사이트용 sitemap
 - `portfolio.db`
-  - 저장된 보유 종목 데이터베이스 (자동 생성)
+  실행 중 자동 생성되는 SQLite 데이터베이스
+
+## 환경 파일 규칙
+
+앱은 아래 순서로 환경변수를 읽는다.
+
+1. `.env`
+2. `APP_ENV` 값 해석
+3. `.env.dev` 또는 `.env.prod`를 override 로드
+
+파일 역할은 아래와 같다.
+
+- `.env`: 공통 비밀값과 공통 설정
+- `.env.dev`: 개발환경 전용 설정
+- `.env.prod`: 운영환경 전용 설정
+
+`APP_ENV`는 `dev`, `development`, `prod`, `production`을 지원한다. 기본값은 `development`라서 로컬 실행 시 별도 지정이 없으면 `.env.dev`가 적용된다.
+
+현재 권장 구성은 아래와 같다.
+
+- `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET`
+- `.env.dev`: `GOOGLE_REDIRECT_URI`, `SESSION_HTTPS_ONLY`, `PROXY_HEADERS`
+- `.env.prod`: `GOOGLE_REDIRECT_URI`, `SESSION_HTTPS_ONLY`, `PROXY_HEADERS`
+
+`SESSION_SECRET`는 세션 쿠키 서명 키이므로 반드시 설정해야 한다. 운영환경에서는 최소 32자 이상의 강한 랜덤 문자열을 사용해야 한다.
+
+생성 예시:
+
+```bash
+python3 - <<'PY'
+import secrets
+print(secrets.token_urlsafe(48))
+PY
+```
+
+## 로컬 실행
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app:app --host 127.0.0.1 --port 8200 --reload
+```
+
+브라우저 접속 주소는 `http://127.0.0.1:8200`이다.
+
+개발환경에서는 기본값이 `development`이므로 보통 `APP_ENV`를 따로 줄 필요가 없다.
+
+## 운영 실행
+
+운영환경 설정을 적용하려면 프로세스 시작 시 `APP_ENV=prod`를 명시해야 한다.
+
+```bash
+APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 8200
+```
+
+백그라운드 실행 예시:
+
+```bash
+nohup env APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 8200 > app.log 2>&1 &
+```
+
+운영에서는 `SESSION_SECRET`를 `.env` 파일에 넣지 말고 서버 환경변수로 주는 방식을 권장한다.
+
+현재 README에는 이 방식이 부분적으로만 있었고, 아래처럼 실행하면 된다.
+
+임시 셸 세션에서 실행:
+
+```bash
+export SESSION_SECRET='여기에-충분히-긴-랜덤-문자열'
+export APP_ENV=prod
+uvicorn app:app --host 127.0.0.1 --port 8200
+```
+
+한 줄 실행:
+
+```bash
+SESSION_SECRET='여기에-충분히-긴-랜덤-문자열' APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 8200
+```
+
+`nohup` 백그라운드 실행:
+
+```bash
+nohup env SESSION_SECRET='여기에-충분히-긴-랜덤-문자열' APP_ENV=prod uvicorn app:app --host 127.0.0.1 --port 8200 > app.log 2>&1 &
+```
+
+`systemd` 사용 시에는 서비스 파일에 직접 넣거나 `EnvironmentFile`로 분리한다.
+
+예시:
+
+```ini
+[Service]
+Environment=APP_ENV=prod
+Environment=SESSION_SECRET=여기에-충분히-긴-랜덤-문자열
+ExecStart=/경로/to/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8200
+```
+
+## OAuth 및 세션 주의사항
+
+- `GOOGLE_REDIRECT_URI`는 실제 로그인 시작 호스트와 정확히 같아야 한다.
+- 로그인 시작 호스트와 콜백 호스트가 다르면 `mismatching_state` 오류가 발생한다.
+- HTTPS 리버스 프록시 뒤의 운영환경에서는 `SESSION_HTTPS_ONLY=true`, `PROXY_HEADERS=true`를 사용해야 한다.
+- `/auth/login`은 현재 요청 호스트 또는 `GOOGLE_REDIRECT_URI`를 기준으로 콜백 URL을 결정한다.
+- 운영환경에서 약한 `SESSION_SECRET` 또는 누락된 `SESSION_SECRET`는 서버가 즉시 거부한다.
 
 ## 주요 기능
 
-- 종목 입력/수정/삭제 및 저장
-- “구성 정보 저장” 시 화면에 보이는 항목만 DB에 저장
-- “실시간 가격 갱신” 시 실시간 가격 재조회 및 보유금액 재계산
-- CSV 텍스트 붙여넣기 가져오기 (기존 데이터 삭제 옵션 포함)
-- 티커가 `na`인 경우
-  - 종목명: `현금/해당없음`
-  - 현재가: 1원
+- `/auth/login`, `/auth/callback`, `/auth/logout`, `/auth/me`
+  Google 로그인 및 세션 확인
+- `/api/holdings`
+  사용자 보유 종목 조회/추가/수정/삭제
+- `/api/holdings_raw`
+  원본 보유 종목 목록 조회
+- `/api/holdings/bulk_replace`
+  전체 종목 일괄 교체
+- `/api/import_csv_text`
+  CSV 텍스트 가져오기
+- `/api/quote`
+  원본 통화 기준 실시간 시세 조회
+- `/api/quote_krw`
+  KRW 환산 시세 조회
+- `/admin/users`
+  관리자용 사용자 목록/생성/수정/삭제
 
-## 실행 방법
+## 가격 조회 규칙
 
-### 기본 실행
-```bash
-cd 소스폴더/
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-APP_ENV=production uvicorn app:app --host 127.0.0.1 --port 8000
-```
+- 한국 종목: 네이버 금융
+- 해외 종목: Yahoo JSON -> Yahoo HTML -> Investing -> Stooq 순서로 fallback
+- 환율: Yahoo -> exchangerate.host -> open.er-api.com 순서로 fallback
+- `NA` 티커: 예수금으로 처리하며 1 KRW로 계산
 
-### uv가 설치되어 있다면 (설치: curl -LsSf https://astral.sh/uv/install.sh | sh) - one shot run
-```bash
-APP_ENV=production uv run --with-requirements requirements.txt uvicorn app:app --host 127.0.0.1 --port 8000
-```
+## 관리자 기능
 
-브라우저에서 `http://127.0.0.1:8000` 접속
+- 첫 로그인 사용자가 자동으로 관리자(`is_admin=1`)가 된다.
+- 관리자는 사용자 목록 조회, 수동 사용자 추가, 이름/관리자 권한 수정, 사용자 삭제를 수행할 수 있다.
+- 일반 사용자는 관리자 화면 버튼을 보지 못하며 `/admin/*` 요청 시 403을 받는다.
 
-## 백그라운드 실행 방법
+## 기타
 
-터미널을 종료해도 서비스가 계속 실행되도록 하는 4가지 방법:
-
-### 방법 1: nohup 사용 (가장 간단)
-```bash
-nohup env APP_ENV=production uvicorn app:app --host 127.0.0.1 --port 8000 > app.log 2>&1 &
-```
-- **장점**: 설정이 간단하고 즉시 사용 가능
-- **단점**: 프로세스 관리가 제한적, 로그 관리가 수동
-- **종료**: `pkill -f uvicorn` 또는 `ps aux | grep uvicorn`으로 PID 찾아 `kill PID`
-
-### 방법 2: screen 사용
-```bash
-screen -S portfolio
-# screen 세션에서 실행
-uvicorn app:app --reload --host 127.0.0.1 --port 8000
-# Ctrl+A, D로 detach
-```
-- **장점**: 세션 관리 가능, 언제든지 재접속 가능
-- **단점**: screen 학습 필요, 시스템 재부팅 시 종료
-- **재접속**: `screen -r portfolio`
-- **종료**: screen 세션 접속 후 `Ctrl+C` 또는 `exit`
-
-### 방법 3: tmux 사용
-```bash
-tmux new -s portfolio
-# tmux 세션에서 실행
-uvicorn app:app --reload --host 127.0.0.1 --port 8000
-# Ctrl+B, D로 detach
-```
-- **장점**: screen보다 현대적, 세션 분할 가능
-- **단점**: tmux 학습 필요, 시스템 재부팅 시 종료
-- **재접속**: `tmux attach -t portfolio`
-- **종료**: tmux 세션 접속 후 `Ctrl+C` 또는 `exit`
-
-### 방법 4: systemd 서비스 등록 (영구적)
-1. 서비스 파일 생성:
-```bash
-sudo nano /etc/systemd/system/portfolio.service
-```
-
-2. 아래 내용 추가:
-```ini
-[Unit]
-Description=Portfolio Service
-After=network.target
-
-[Service]
-Type=simple
-User=kdm
-WorkingDirectory=/home/kdm/www/portfolio_service
-Environment=PATH=/home/kdm/.venv/bin
-ExecStart=/home/kdm/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-3. 서비스 활성화:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable portfolio
-sudo systemctl start portfolio
-```
-
-- **장점**: 시스템 재부팅 후 자동 시작, 안정적인 프로세스 관리
-- **단점**: 초기 설정이 복잡, root 권한 필요
-- **상태 확인**: `sudo systemctl status portfolio`
-- **로그 확인**: `sudo journalctl -u portfolio -f`
-- **종료**: `sudo systemctl stop portfolio`
-
-## 추천 방법
-- **개발 환경**: screen 또는 tmux
-- **프로덕션 환경**: systemd 서비스 등록
-
-
-## CSV 텍스트 입력 포맷
-
-```
-ticker,quantity
-064400,664
-na,60000
-463250,333
-```
-
-## 참고 사항
-
-- 외부 데이터 소스가 차단되면 가격 조회가 실패할 수 있습니다.
-- 해외 종목은 소스별 티커 규칙이 다를 수 있습니다.
-
-
-.env.production (별도 생성해서 넣어줘... 이런 내용에 맞게)
-```
-APP_ENV="production"
-GOOGLE_CLIENT_ID="923818443020-sf6mohajn3q1~~~~~~~~~9nnr.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="GOCSPX-NMB5PA~~~~~~~~~hR2F1KE"
-GOOGLE_REDIRECT_URI="https://djbla.kbla.smartspace.co.kr/auth/callback"
-SESSION_HTTPS_ONLY="true"
-PROXY_HEADERS="true"
-```
+- API 확인은 `http://127.0.0.1:8200/docs`에서 가능하다.
+- 포트가 점유되어 있으면 `lsof -ti:8200 | xargs kill -9`로 종료할 수 있다.
+- `portfolio.db`는 실행 시 자동 생성된다.
