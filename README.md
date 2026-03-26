@@ -175,3 +175,10 @@ ExecStart=/경로/to/venv/bin/uvicorn app:app --host 127.0.0.1 --port 7300
 - API 확인은 `http://127.0.0.1:7300/docs`에서 가능하다.
 - 포트가 점유되어 있으면 `lsof -ti:7300 | xargs kill -9`로 종료할 수 있다.
 - `portfolio.db`는 실행 시 자동 생성된다.
+
+## one-shot 스크립트
+
+- 개발 시작: `./one-shot-startup.sh`
+- 개발 중지: `./one-shot-stop.sh`
+- 운영 시작: `APP_ENV=prod ./one-shot-startup.sh`
+- 운영 중지: `APP_ENV=prod ./one-shot-stop.sh`
