@@ -70,6 +70,10 @@ if APP_ENV == "production" and (
     raise RuntimeError(
         "SESSION_SECRET must be a strong random string of at least 32 characters in production"
     )
+if APP_ENV == "production" and (not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET):
+    raise RuntimeError(
+        "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required in production"
+    )
 
 
 def derive_site_url() -> str:
@@ -607,7 +611,10 @@ def require_admin(request: Request) -> sqlite3.Row:
 @app.get("/auth/login")
 async def auth_login(request: Request):
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        raise HTTPException(status_code=500, detail="google oauth not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="google oauth not configured: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET",
+        )
 
     redirect_uri = get_google_redirect_uri(request)
     return await oauth.google.authorize_redirect(request, redirect_uri)
@@ -616,7 +623,10 @@ async def auth_login(request: Request):
 @app.get("/auth/callback")
 async def auth_callback(request: Request):
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        raise HTTPException(status_code=500, detail="google oauth not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="google oauth not configured: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET",
+        )
     conn = get_db()
     try:
         user_count = conn.execute("SELECT COUNT(*) AS cnt FROM users").fetchone()["cnt"]
