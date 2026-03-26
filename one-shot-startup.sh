@@ -3,8 +3,17 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UVICORN_BIN="${ROOT_DIR}/venv/bin/uvicorn"
-MODE_INPUT="${APP_ENV:-development}"
 PORT="${PORT:-7300}"
+
+if [[ -n "${APP_ENV:-}" ]]; then
+  MODE_INPUT="${APP_ENV}"
+elif [[ -f "${ROOT_DIR}/.env.dev" ]]; then
+  MODE_INPUT="development"
+elif [[ -f "${ROOT_DIR}/.env.prod" ]]; then
+  MODE_INPUT="production"
+else
+  MODE_INPUT="development"
+fi
 
 case "${MODE_INPUT}" in
   prod|production)

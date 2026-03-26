@@ -2,7 +2,16 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODE_INPUT="${APP_ENV:-development}"
+
+if [[ -n "${APP_ENV:-}" ]]; then
+  MODE_INPUT="${APP_ENV}"
+elif [[ -f "${ROOT_DIR}/.env.dev" ]]; then
+  MODE_INPUT="development"
+elif [[ -f "${ROOT_DIR}/.env.prod" ]]; then
+  MODE_INPUT="production"
+else
+  MODE_INPUT="development"
+fi
 
 stop_by_pid_file() {
   local pid_file="$1"

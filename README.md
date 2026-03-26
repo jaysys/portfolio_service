@@ -178,7 +178,10 @@ ExecStart=/경로/to/venv/bin/uvicorn app:app --host 127.0.0.1 --port 7300
 
 ## one-shot 스크립트
 
-- 개발 시작: `./one-shot-startup.sh`
-- 개발 중지: `./one-shot-stop.sh`
-- 운영 시작: `APP_ENV=prod ./one-shot-startup.sh`
-- 운영 중지: `APP_ENV=prod ./one-shot-stop.sh`
+- 모드 자동 판별:
+  `.env.dev`가 있으면 개발, 없고 `.env.prod`가 있으면 운영으로 동작
+- 시작: `./one-shot-startup.sh`
+- 중지: `./one-shot-stop.sh`
+- 모드 강제가 필요하면:
+  `APP_ENV=prod ./one-shot-startup.sh`
+  `APP_ENV=prod ./one-shot-stop.sh`
