@@ -18,3 +18,4 @@ build/
 *.swp
 *.tmp
 *.old
+stitch/
