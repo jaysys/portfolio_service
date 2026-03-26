@@ -64,24 +64,23 @@ function showDialog({
 }
 
 function syncSideCardHeight() {
-  if (!holdingsSectionEl || !sideCardEl || !subtotalWrapEl) return;
+  if (!holdingsSectionEl || !sideCardEl) return;
   if (window.innerWidth <= 900) {
-    holdingsSectionEl.style.height = "";
-    sideCardEl.style.height = "";
-    subtotalWrapEl.style.height = "";
+    holdingsSectionEl.style.minHeight = "";
+    sideCardEl.style.minHeight = "";
     return;
   }
 
   window.requestAnimationFrame(() => {
-    holdingsSectionEl.style.height = "";
-    sideCardEl.style.height = "";
-    subtotalWrapEl.style.height = "";
+    holdingsSectionEl.style.minHeight = "";
+    sideCardEl.style.minHeight = "";
     const leftHeight = holdingsSectionEl.getBoundingClientRect().height;
     const rightHeight = sideCardEl.getBoundingClientRect().height;
     const targetHeight = Math.max(leftHeight, rightHeight);
     if (targetHeight > 0) {
-      holdingsSectionEl.style.height = `${Math.round(targetHeight)}px`;
-      sideCardEl.style.height = `${Math.round(targetHeight)}px`;
+      const h = `${Math.round(targetHeight)}px`;
+      holdingsSectionEl.style.minHeight = h;
+      sideCardEl.style.minHeight = h;
     }
   });
 }
